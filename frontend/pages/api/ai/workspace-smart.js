@@ -9,18 +9,18 @@ function detectIntent(text) {
   const wordCount = lower.split(/\s+/).filter(Boolean).length;
   const looksLikeList = /[,•\-;\n]/.test(lower);
 
-  // For very short, non-list inputs, default to improve (and optional summary)
   if (wordCount < 6 && !looksLikeList) {
-    return ["improve"];
+    return ["improve", "summary"];
   }
 
   const intents = new Set();
-  if (/(improve|rewrite|polish|clean up)/.test(lower)) intents.add("improve");
+  if (/(improve|rewrite|polish|clean up|fix grammar)/.test(lower)) intents.add("improve");
   if (/(task|todo|to-do|action item|action-item|convert.*tasks)/.test(lower)) intents.add("tasks");
   if (/(summarize|summary|meeting notes|notes:)/.test(lower)) intents.add("summary");
   if (/(plan|roadmap|steps|project plan)/.test(lower)) intents.add("plan");
   if (/(action items?|follow-ups?|follow ups?)/.test(lower)) intents.add("actions");
   if (!intents.size) {
+    intents.add("improve");
     intents.add("summary");
     intents.add("tasks");
     intents.add("actions");
@@ -51,9 +51,9 @@ function extractItems(text, max = 10) {
     .split(/[\r\n]+|[•\-]\s+|(?<=[.;])\s+|,\s+/)
     .map((p) =>
       p
-        .replace(/^[\d\s.()-]+\s*/, "") // drop leading numbers/bullets
-        .replace(/[.;,]\s*$/, "") // drop trailing punctuation
-        .replace(/\s+\d+$/, "") // drop trailing numbers
+        .replace(/^[\d\s.()-]+\s*/, "")
+        .replace(/[.;,]\s*$/, "")
+        .replace(/\s+\d+$/, "")
         .trim()
     )
     .filter(
@@ -90,7 +90,6 @@ export default async function handler(req, res) {
     try {
       supabase = getSupabaseServerClient();
     } catch (e) {
-      // fallback to anon client (read-only) so AI still works
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       if (!url || !anon) {
@@ -112,7 +111,14 @@ export default async function handler(req, res) {
 
     const intents = detectIntent(text);
 
-    const results = {};
+    const results = {
+      summary: "",
+      tasks: [],
+      improved: "",
+      action_items: [],
+      project_plan: ""
+    };
+
     if (intents.includes("summary")) {
       results.summary = await summarizeText(text);
     }

@@ -45,6 +45,12 @@ export default function SmartAssistant() {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
   };
 
+  const deleteHistory = (id) => {
+    const next = history.filter((h) => h.id !== id);
+    setHistory(next);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+  };
+
   const runAI = async () => {
     const text = input.trim();
     if (!text) return;
@@ -89,6 +95,30 @@ export default function SmartAssistant() {
     const list = results?.action_items || results?.tasks || [];
     return list.map(toSentenceCase);
   }, [results]);
+
+  const summaryText = results ? stripSummaryLabel(results.summary) || "None detected." : null;
+  const improvedText = results ? results.improved || "None detected." : null;
+  const planText = results ? results.project_plan || "None detected." : null;
+  const tasksContent =
+    results && (tasks.length ? (
+      <ul className="list-disc pl-5 space-y-1">
+        {tasks.map((t, i) => (
+          <li key={i}>{t}</li>
+        ))}
+      </ul>
+    ) : (
+      "None detected."
+    ));
+  const actionsContent =
+    results && (actionItems.length ? (
+      <ul className="list-disc pl-5 space-y-1">
+        {actionItems.map((t, i) => (
+          <li key={i}>{t}</li>
+        ))}
+      </ul>
+    ) : (
+      "None detected."
+    ));
 
   const addTasksToBoard = async () => {
     if (!tasks.length) return;
@@ -146,20 +176,33 @@ export default function SmartAssistant() {
         ) : (
           <div className="space-y-2">
             {history.map((item) => (
-              <button
+              <div
                 key={item.id}
-                type="button"
-                onClick={() => loadHistory(item)}
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-left text-xs text-slate-200 hover:border-indigo-400"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-left text-xs text-slate-200"
               >
-                <p className="font-semibold text-slate-100">
-                  {item.intent?.join(", ") || "auto"}
-                </p>
-                <p className="line-clamp-2 text-slate-400">{item.input}</p>
-                <p className="text-[10px] text-slate-500">
-                  {new Date(item.ts).toLocaleString()}
-                </p>
-              </button>
+                <div className="mb-1 flex items-start justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => loadHistory(item)}
+                    className="flex-1 text-left hover:text-indigo-200"
+                  >
+                    <p className="font-semibold text-slate-100">
+                      {item.intent?.join(", ") || "auto"}
+                    </p>
+                    <p className="line-clamp-2 text-slate-400">{item.input}</p>
+                    <p className="text-[10px] text-slate-500">
+                      {new Date(item.ts).toLocaleString()}
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteHistory(item.id)}
+                    className="rounded border border-slate-700 px-2 py-1 text-[10px] text-slate-300 hover:border-rose-400 hover:text-rose-200"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -227,28 +270,18 @@ export default function SmartAssistant() {
               Thinking...
             </div>
           ) : null}
-          {results?.summary ? (
-            <Card title="Summary" content={stripSummaryLabel(results.summary)} />
-          ) : null}
-          {tasks.length ? (
-            <Card
-              title="Tasks"
-              content={<ul className="list-disc pl-5 space-y-1">{tasks.map((t, i) => <li key={i}>{t}</li>)}</ul>}
-            />
-          ) : results && !tasks.length && !loading ? (
-            <p className="text-sm text-slate-500">No tasks detected.</p>
-          ) : null}
-          {results?.improved ? <Card title="Improved Text" content={results.improved} /> : null}
-          {results?.project_plan ? (
-            <Card title="Project Plan" content={<pre className="whitespace-pre-wrap">{results.project_plan}</pre>} />
-          ) : null}
-          {actionItems?.length ? (
-            <Card
-              title="Action Items"
-              content={<ul className="list-disc pl-5 space-y-1">{actionItems.map((t, i) => <li key={i}>{t}</li>)}</ul>}
-            />
-          ) : null}
-          {!loading && !results ? (
+          {results ? (
+            <>
+              <Card title="Summary" content={summaryText} />
+              <Card title="Tasks" content={tasksContent} />
+              <Card title="Improved Text" content={improvedText} />
+              <Card title="Action Items" content={actionsContent} />
+              <Card
+                title="Project Plan"
+                content={planText ? <pre className="whitespace-pre-wrap">{planText}</pre> : "None detected."}
+              />
+            </>
+          ) : !loading ? (
             <p className="text-sm text-slate-500">Run AI to see structured output here.</p>
           ) : null}
         </div>
