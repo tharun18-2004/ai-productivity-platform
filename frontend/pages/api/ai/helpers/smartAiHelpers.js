@@ -97,6 +97,14 @@ function fallbackImprove(text) {
     return "What is your name?";
   }
 
+  // For very short, non-list inputs, try a grammar fixer
+  const wordCount = normalized.split(/\s+/).filter(Boolean).length;
+  const looksLikeList = /[,•\-;\n]/.test(normalized);
+  if (wordCount <= 8 && !looksLikeList) {
+    const fixed = fixShortSentence(normalized);
+    if (fixed) return fixed;
+  }
+
   // Fix a couple of very short, common typos (e.g., "todayi s tuesday")
   let improved = normalized
     .replace(/\btodayi\s*s\b/gi, "today is")
@@ -128,6 +136,71 @@ function basicNormalize(str) {
     .trim();
 }
 
+function fixShortSentence(input) {
+  const original = input.trim();
+  if (!original) return null;
+  const lower = original.toLowerCase();
+  const hasVerb = /\b(is|are|am|'s|was|were)\b/.test(lower);
+  if (hasVerb) return null;
+
+  const tokens = lower.split(/\s+/);
+  if (!tokens.length) return null;
+
+  const subject = tokens[0];
+  const restTokens = tokens.slice(1);
+  if (!restTokens.length) return null;
+
+  const copulas = {
+    i: "am",
+    you: "are",
+    we: "are",
+    they: "are",
+    those: "are",
+    these: "are",
+    he: "is",
+    she: "is",
+    it: "is",
+    this: "is",
+    that: "is",
+    today: "is",
+    tomorrow: "is",
+    yesterday: "is"
+  };
+
+  if (!(subject in copulas)) return null;
+
+  const adjectives = new Set([
+    "good",
+    "bad",
+    "great",
+    "ready",
+    "done",
+    "fine",
+    "busy",
+    "available",
+    "ok",
+    "okay",
+    "correct",
+    "wrong",
+    "happy",
+    "sad"
+  ]);
+
+  const negation = restTokens[0] === "not";
+  const adjToken = negation ? restTokens[1] : restTokens[0];
+  if (!adjToken) return null;
+  if (!adjectives.has(adjToken)) return null;
+
+  const subjectFixed = subject === "i" ? "I" : capitalize(subject);
+  const verb = copulas[subject];
+  const tail = negation ? `not ${adjToken}` : adjToken;
+
+  let sentence = `${subjectFixed} ${verb} ${tail}`;
+  sentence = capitalizeWeekdays(sentence);
+  if (!/[.!?]$/.test(sentence)) sentence += ".";
+  return sentence;
+}
+
 function capitalize(str) {
   if (!str) return "";
   return str.charAt(0).toUpperCase() + str.slice(1);
@@ -139,3 +212,6 @@ function capitalizeWeekdays(str) {
     return weekdays.includes(match.toLowerCase()) ? capitalize(match.toLowerCase()) : match;
   });
 }
+
+// Exported for lightweight fixture testing
+export const _testHelpers = { fixShortSentence, fallbackImprove };
