@@ -80,9 +80,9 @@ export default async function handler(req, res) {
 function extractYouTubeId(url) {
   const value = String(url || "").trim();
   const patterns = [
-    /youtu\\.be\\/([\\w-]{6,})/i,
-    /youtube\\.com\\/(?:watch\\?v=|embed\\/|v\\/)([\\w-]{6,})/i,
-    /youtube\\.com\\/.+?[?&]v=([\\w-]{6,})/i
+    /youtu\.be\/([\w-]{6,})/i,
+    /youtube\.com\/(?:watch\?v=|embed\/|v\/)([\w-]{6,})/i,
+    /youtube\.com\/.+?[?&]v=([\w-]{6,})/i
   ];
   for (const pattern of patterns) {
     const match = value.match(pattern);
