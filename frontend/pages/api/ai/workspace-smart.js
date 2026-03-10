@@ -6,6 +6,14 @@ import { summarizeText, taskText, improveText } from "./helpers/smartAiHelpers";
 
 function detectIntent(text) {
   const lower = text.toLowerCase();
+  const wordCount = lower.split(/\s+/).filter(Boolean).length;
+  const looksLikeList = /[,•\-;\n]/.test(lower);
+
+  // For very short, non-list inputs, default to improve (and optional summary)
+  if (wordCount < 6 && !looksLikeList) {
+    return ["improve", "summary"];
+  }
+
   const intents = new Set();
   if (/(improve|rewrite|polish|clean up)/.test(lower)) intents.add("improve");
   if (/(task|todo|to-do|action item|action-item|convert.*tasks)/.test(lower)) intents.add("tasks");
