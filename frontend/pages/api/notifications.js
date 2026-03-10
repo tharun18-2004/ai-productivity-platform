@@ -7,18 +7,24 @@ export default async function handler(req, res) {
       createUserIfMissing: false
     });
 
+    if (!context?.supabase) {
+      return res.status(500).json({ error: "Supabase client missing (check env keys)." });
+    }
+
     if (!context.user || !context.workspace || !context.membership) {
       return res.status(404).json({ error: "Workspace not found" });
     }
 
     if (req.method === "GET") {
-      const { data, error } = await context.supabase
+      const baseQuery = context.supabase
         .from("notifications")
-        .select("id,type,title,body,entity_type,entity_id,is_read,created_at,workspace_id")
+        .select("id,type,title,body,entity_type,entity_id,is_read,created_at,workspace_id,user_id")
         .eq("workspace_id", context.workspace.id)
-        .eq("user_id", context.user.id)
         .order("created_at", { ascending: false })
         .limit(20);
+
+      const query = context.user?.id ? baseQuery.eq("user_id", context.user.id) : baseQuery;
+      const { data, error } = await query;
 
       if (error) return res.status(500).json({ error: error.message });
 
@@ -37,8 +43,11 @@ export default async function handler(req, res) {
       let query = context.supabase
         .from("notifications")
         .update({ is_read: true })
-        .eq("workspace_id", context.workspace.id)
-        .eq("user_id", context.user.id);
+        .eq("workspace_id", context.workspace.id);
+
+      if (context.user?.id) {
+        query = query.eq("user_id", context.user.id);
+      }
 
       if (notificationId) {
         query = query.eq("id", notificationId);
