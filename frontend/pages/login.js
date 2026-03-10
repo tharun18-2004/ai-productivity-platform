@@ -93,6 +93,12 @@ export default function LoginPage() {
           </button>
         </form>
         {error ? <p className="mt-3 text-sm text-rose-300">{error}</p> : null}
+        <p className="mt-3 text-sm text-slate-400">
+          Forgot your password?{" "}
+          <Link href="/forgot-password" className="text-indigo-300">
+            Reset it
+          </Link>
+        </p>
         <p className="mt-4 text-sm text-slate-400">
           New here?{" "}
           <Link href="/signup" className="text-indigo-300">

@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { fallbackOverview } from "../data";
 import { supabase } from "../../../lib/supabaseClient";
 
-export function useDashboardData() {
+export function useDashboardData(enabled = true) {
   const [overview, setOverview] = useState(fallbackOverview);
-  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardLoading, setDashboardLoading] = useState(enabled);
   const [dashboardStats, setDashboardStats] = useState({
     total_notes: 0,
     completed_tasks: 0,
@@ -22,6 +22,11 @@ export function useDashboardData() {
   const [workspaceId, setWorkspaceId] = useState(null);
 
   useEffect(() => {
+    if (!enabled) {
+      setDashboardLoading(false);
+      return undefined;
+    }
+
     let mounted = true;
 
     const load = async () => {
@@ -120,10 +125,10 @@ export function useDashboardData() {
       mounted = false;
       window.removeEventListener("dashboard-refresh", refresh);
     };
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
-    if (!workspaceId) return undefined;
+    if (!enabled || !workspaceId) return undefined;
 
     const channel = supabase
       .channel(`dashboard-workspace-${workspaceId}`)
@@ -162,7 +167,7 @@ export function useDashboardData() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [workspaceId]);
+  }, [enabled, workspaceId]);
 
   const metrics = useMemo(
     () => ({
