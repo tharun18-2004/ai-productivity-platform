@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 export function useWorkspaceContext() {
@@ -11,6 +11,7 @@ export function useWorkspaceContext() {
     user: null,
     ready: false
   });
+  const refreshRef = useRef(() => {});
 
   useEffect(() => {
     let active = true;
@@ -57,6 +58,8 @@ export function useWorkspaceContext() {
       }
     };
 
+    refreshRef.current = load;
+
     load();
 
     const refresh = () => load();
@@ -75,5 +78,5 @@ export function useWorkspaceContext() {
     };
   }, []);
 
-  return workspaceState;
+  return { ...workspaceState, refresh: refreshRef.current };
 }

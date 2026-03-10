@@ -59,6 +59,7 @@ export default function NotesWorkspace() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const autosaveTimeoutRef = useRef(null);
+  const notesRetryRef = useRef(false);
   const lastPersistedRef = useRef({});
   const selectedNote =
     notes.find((note) => note.id === selectedId) ||
@@ -90,10 +91,12 @@ export default function NotesWorkspace() {
       const {
         data: { user: authUser }
       } = await supabase.auth.getUser();
-      const params = new URLSearchParams();
-      if (authUser?.email) {
-        params.set("email", authUser.email);
+      const email = authUser?.email || workspaceState.user?.email || "";
+      if (!email) {
+        throw new Error("Sign in to load workspace notes.");
       }
+      const params = new URLSearchParams();
+      params.set("email", email);
       const response = await fetch(
         params.toString() ? `/api/notes?${params.toString()}` : "/api/notes"
       );
@@ -103,6 +106,7 @@ export default function NotesWorkspace() {
       }
       const fetched = data?.notes || [];
       const normalized = fetched.map(normalizeNote);
+      notesRetryRef.current = false;
       lastPersistedRef.current = normalized.reduce((acc, note) => {
         acc[note.id] = serializeNote(note);
         return acc;
@@ -114,11 +118,14 @@ export default function NotesWorkspace() {
       });
     } catch (err) {
       const message = err?.message || "Unable to load notes.";
-      setError(
-        /workspace not found/i.test(message)
-          ? "Session expired or workspace missing. Refresh or sign in again."
-          : message
-      );
+      const workspaceError = /workspace not found/i.test(message);
+      if (workspaceError && !notesRetryRef.current && typeof workspaceState.refresh === "function") {
+        notesRetryRef.current = true;
+        await workspaceState.refresh();
+        await loadNotes();
+        return;
+      }
+      setError(workspaceError ? "Session expired or workspace missing. Refresh or sign in again." : message);
     } finally {
       setLoading(false);
     }
@@ -170,16 +177,17 @@ export default function NotesWorkspace() {
       setLoadingAttachments(true);
       try {
         const {
-          data: { user: authUser }
-        } = await supabase.auth.getUser();
-        const params = new URLSearchParams();
-        if (authUser?.email) {
-          params.set("email", authUser.email);
-        }
-        const response = await fetch(
-          params.toString()
-            ? `/api/notes/${selectedId}/attachments?${params.toString()}`
-            : `/api/notes/${selectedId}/attachments`
+        data: { user: authUser }
+      } = await supabase.auth.getUser();
+      const params = new URLSearchParams();
+      const email = authUser?.email || workspaceState.user?.email || "";
+      if (email) {
+        params.set("email", email);
+      }
+      const response = await fetch(
+        params.toString()
+          ? `/api/notes/${selectedId}/attachments?${params.toString()}`
+          : `/api/notes/${selectedId}/attachments`
         );
         const data = await response.json();
         if (!response.ok) {

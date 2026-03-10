@@ -83,6 +83,7 @@ export default function KanbanBoard() {
   const [dropTarget, setDropTarget] = useState("");
   const [generatedIds, setGeneratedIds] = useState([]);
   const boardRef = useRef(initialBoard);
+  const tasksRetryRef = useRef(false);
 
   const loadTasks = async () => {
     if (!workspaceState?.ready) return;
@@ -93,10 +94,12 @@ export default function KanbanBoard() {
       const {
         data: { user: authUser }
       } = await supabase.auth.getUser();
-      const params = new URLSearchParams();
-      if (authUser?.email) {
-        params.set("email", authUser.email);
+      const email = authUser?.email || workspaceState.user?.email || "";
+      if (!email) {
+        throw new Error("Sign in to load workspace tasks.");
       }
+      const params = new URLSearchParams();
+      params.set("email", email);
       const response = await fetch(
         params.toString() ? `/api/tasks?${params.toString()}` : "/api/tasks"
       );
@@ -105,11 +108,19 @@ export default function KanbanBoard() {
         throw new Error(data?.error || "Failed to load tasks");
       }
       setBoard(mapTasksToBoard(data?.tasks || []));
+      tasksRetryRef.current = false;
       setGeneratedIds([]); // reset badge highlights on reload
     } catch (err) {
       const message = err?.message || "Unable to load tasks.";
+      const workspaceError = /workspace not found/i.test(message);
+      if (workspaceError && !tasksRetryRef.current && typeof workspaceState.refresh === "function") {
+        tasksRetryRef.current = true;
+        await workspaceState.refresh();
+        await loadTasks();
+        return;
+      }
       setError(
-        /workspace not found/i.test(message)
+        workspaceError
           ? "Session expired or workspace missing. Refresh or sign in again."
           : message
       );
