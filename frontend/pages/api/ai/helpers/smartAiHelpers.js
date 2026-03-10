@@ -84,8 +84,26 @@ function fallbackTasks(text) {
 function fallbackImprove(text) {
   const normalized = String(text || "").trim();
   if (!normalized) throw new Error("Please provide text to improve.");
+  const lower = normalized.toLowerCase();
+
+  // Targeted patterns for tiny inputs
+  const myNameMatch = lower.match(/^my name\s+(.+)/i);
+  if (myNameMatch) {
+    const name = myNameMatch[1].trim().replace(/[.?!"]+$/, "");
+    return `My name is ${capitalize(name)}.`;
+  }
+
+  if (/^what\s+your\s+name\??$/.test(lower)) {
+    return "What is your name?";
+  }
+
   let improved = normalized;
-  improved = improved.charAt(0).toUpperCase() + improved.slice(1);
+  improved = capitalize(improved);
   if (!/[.!?]$/.test(improved)) improved += ".";
   return improved;
+}
+
+function capitalize(str) {
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1);
 }
