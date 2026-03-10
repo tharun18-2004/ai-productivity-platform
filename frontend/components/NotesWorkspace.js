@@ -82,6 +82,7 @@ export default function NotesWorkspace() {
   );
 
   const loadNotes = async () => {
+    if (!workspaceState?.ready) return;
     setLoading(true);
     setError("");
     setSuccess("");
@@ -112,15 +113,22 @@ export default function NotesWorkspace() {
         return normalized[0]?.id || null;
       });
     } catch (err) {
-      setError(err?.message || "Unable to load notes.");
+      const message = err?.message || "Unable to load notes.";
+      setError(
+        /workspace not found/i.test(message)
+          ? "Session expired or workspace missing. Refresh or sign in again."
+          : message
+      );
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadNotes();
-  }, []);
+    if (workspaceState.ready) {
+      loadNotes();
+    }
+  }, [workspaceState.ready]);
 
   useEffect(() => {
     const workspaceId = workspaceState.workspace?.id;
@@ -148,6 +156,11 @@ export default function NotesWorkspace() {
   }, [workspaceState.workspace?.id]);
 
   useEffect(() => {
+    if (!workspaceState.ready) {
+      setAttachments([]);
+      return;
+    }
+
     const fetchAttachments = async () => {
       if (!selectedId) {
         setAttachments([]);

@@ -85,6 +85,7 @@ export default function KanbanBoard() {
   const boardRef = useRef(initialBoard);
 
   const loadTasks = async () => {
+    if (!workspaceState?.ready) return;
     setLoading(true);
     setError("");
     setSuccess("");
@@ -106,7 +107,12 @@ export default function KanbanBoard() {
       setBoard(mapTasksToBoard(data?.tasks || []));
       setGeneratedIds([]); // reset badge highlights on reload
     } catch (err) {
-      setError(err?.message || "Unable to load tasks.");
+      const message = err?.message || "Unable to load tasks.";
+      setError(
+        /workspace not found/i.test(message)
+          ? "Session expired or workspace missing. Refresh or sign in again."
+          : message
+      );
     } finally {
       setLoading(false);
     }
@@ -117,8 +123,10 @@ export default function KanbanBoard() {
   }, [board]);
 
   useEffect(() => {
-    loadTasks();
-  }, []);
+    if (workspaceState.ready) {
+      loadTasks();
+    }
+  }, [workspaceState.ready]);
 
   useEffect(() => {
     const workspaceId = workspaceState.workspace?.id;

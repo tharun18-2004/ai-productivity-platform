@@ -8,7 +8,8 @@ export function useWorkspaceContext() {
     workspace: null,
     membership: null,
     members: [],
-    user: null
+    user: null,
+    ready: false
   });
 
   useEffect(() => {
@@ -39,7 +40,8 @@ export function useWorkspaceContext() {
           workspace: data?.workspace || null,
           membership: data?.membership || null,
           members: data?.members || [],
-          user: data?.user || null
+          user: data?.user || null,
+          ready: Boolean(data?.workspace && data?.membership)
         });
       } catch (err) {
         if (!active) return;
@@ -49,17 +51,27 @@ export function useWorkspaceContext() {
           workspace: null,
           membership: null,
           members: [],
-          user: null
+          user: null,
+          ready: false
         });
       }
     };
 
     load();
+
     const refresh = () => load();
     window.addEventListener("workspace-updated", refresh);
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        load();
+      }
+    });
+
     return () => {
       active = false;
       window.removeEventListener("workspace-updated", refresh);
+      authListener?.subscription?.unsubscribe?.();
     };
   }, []);
 
