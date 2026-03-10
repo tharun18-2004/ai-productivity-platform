@@ -10,7 +10,7 @@ function detectIntent(text) {
   const looksLikeList = /[,•\-;\n]/.test(lower);
 
   if (wordCount < 6 && !looksLikeList) {
-    return ["improve", "summary"];
+    return ["improve"];
   }
 
   const intents = new Set();
