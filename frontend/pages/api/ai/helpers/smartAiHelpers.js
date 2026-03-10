@@ -97,8 +97,11 @@ function fallbackImprove(text) {
     return "What is your name?";
   }
 
-  let improved = normalized;
+  // Fix a couple of very short, common typos (e.g., "todayi s tuesday")
+  let improved = normalized.replace(/\btodayi\s*s\b/gi, "today is").replace(/\btoday\s*s\b/gi, "today is");
+
   improved = capitalize(improved);
+  improved = capitalizeWeekdays(improved);
   if (!/[.!?]$/.test(improved)) improved += ".";
   return improved;
 }
@@ -106,4 +109,11 @@ function fallbackImprove(text) {
 function capitalize(str) {
   if (!str) return "";
   return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function capitalizeWeekdays(str) {
+  const weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "today"];
+  return str.replace(/\b([a-z]+)\b/gi, (match) => {
+    return weekdays.includes(match.toLowerCase()) ? capitalize(match.toLowerCase()) : match;
+  });
 }
