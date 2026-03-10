@@ -105,6 +105,13 @@ function fallbackImprove(text) {
     .replace(/\s{2,}/g, " ")
     .trim();
 
+  // If pattern is "today <weekday>", insert "is"
+  const todayWeekday = improved.match(/^today\s+([a-z]+)$/i);
+  if (todayWeekday) {
+    const weekday = capitalize(todayWeekday[1]);
+    improved = `Today is ${weekday}`;
+  }
+
   improved = capitalize(improved);
   improved = capitalizeWeekdays(improved);
   if (!/[.!?]$/.test(improved)) improved += ".";
