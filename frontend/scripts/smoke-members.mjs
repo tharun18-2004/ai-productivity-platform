@@ -1,6 +1,7 @@
 const baseUrl = process.env.SMOKE_BASE_URL || "http://127.0.0.1:3000";
 const ownerEmail = String(process.env.SMOKE_OWNER_EMAIL || "").trim().toLowerCase();
 const inviteEmail = String(process.env.SMOKE_INVITE_EMAIL || "").trim().toLowerCase();
+const accessToken = String(process.env.SMOKE_SUPABASE_TOKEN || "").trim();
 
 if (!ownerEmail || !inviteEmail) {
   console.error("SMOKE_OWNER_EMAIL and SMOKE_INVITE_EMAIL are required.");
@@ -8,11 +9,17 @@ if (!ownerEmail || !inviteEmail) {
 }
 
 async function request(path, options = {}) {
+  const headers = {
+    "content-type": "application/json",
+    ...(options.headers || {})
+  };
+
+  if (accessToken) {
+    headers.authorization = `Bearer ${accessToken}`;
+  }
+
   const response = await fetch(`${baseUrl}${path}`, {
-    headers: {
-      "content-type": "application/json",
-      ...(options.headers || {})
-    },
+    headers,
     ...options
   });
 

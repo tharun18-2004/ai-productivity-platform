@@ -7,12 +7,14 @@ import WorkspaceSwitcher from "./workspace/WorkspaceSwitcher";
 import MemberAvatarGroup from "./workspace/MemberAvatarGroup";
 import InviteMemberPanel from "./workspace/InviteMemberPanel";
 import InviteNotification from "./notifications/InviteNotification";
+import { useFreeUsage } from "../lib/useFreeUsage";
 
 const navItems = [
   { href: "/dashboard", label: "Home", icon: "H" },
   { href: "/notes", label: "Notes", icon: "N" },
   { href: "/tasks", label: "Tasks", icon: "T" },
   { href: "/ai", label: "AI Tools", icon: "A" },
+  { href: "/ai-assistant", label: "AI Assistant", icon: "Q" },
   { href: "/settings", label: "Settings", icon: "S" }
 ];
 
@@ -44,6 +46,7 @@ export default function AppShell({ title, subtitle, children, rightHeader }) {
     avatarUrl: ""
   });
   const workspaceState = useWorkspaceContext();
+  const usage = useFreeUsage();
 
   const loadNotifications = async () => {
     try {
@@ -559,6 +562,30 @@ export default function AppShell({ title, subtitle, children, rightHeader }) {
                 {subtitle ? <p className={`text-sm ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>{subtitle}</p> : null}
               </div>
               <div className="flex items-center gap-3">
+                {usage.remaining !== null && usage.total ? (
+                  <span
+                    title="Free plan usage"
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold md:hidden ${
+                      usage.remaining <= 5
+                        ? "border-amber-400/60 bg-amber-500/15 text-amber-100"
+                        : "border-emerald-400/40 bg-emerald-500/15 text-emerald-100"
+                    }`}
+                  >
+                    Free plan: {usage.remaining}/{usage.total} left
+                  </span>
+                ) : null}
+                {usage.remaining !== null && usage.total ? (
+                  <span
+                    title="Free plan usage"
+                    className={`hidden rounded-full border px-3 py-1 text-xs font-semibold md:inline-flex ${
+                      usage.remaining <= 5
+                        ? "border-amber-400/60 bg-amber-500/15 text-amber-100"
+                        : "border-emerald-400/40 bg-emerald-500/15 text-emerald-100"
+                    }`}
+                  >
+                    Free plan: {usage.remaining}/{usage.total} left
+                  </span>
+                ) : null}
                 <div className="hidden md:block">
                   <WorkspaceSwitcher workspace={workspaceState.workspace} theme={theme} />
                 </div>

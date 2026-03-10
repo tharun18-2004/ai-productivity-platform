@@ -1,5 +1,6 @@
 const baseUrl = process.env.SMOKE_BASE_URL || "http://127.0.0.1:3000";
 const ownerEmail = String(process.env.SMOKE_OWNER_EMAIL || "").trim().toLowerCase();
+const accessToken = String(process.env.SMOKE_SUPABASE_TOKEN || "").trim();
 
 if (!ownerEmail) {
   console.error("SMOKE_OWNER_EMAIL is required.");
@@ -7,7 +8,15 @@ if (!ownerEmail) {
 }
 
 async function request(path) {
-  const response = await fetch(`${baseUrl}${path}`);
+  const headers = {
+    "content-type": "application/json"
+  };
+
+  if (accessToken) {
+    headers.authorization = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetch(`${baseUrl}${path}`, { headers });
   const data = await response.json().catch(() => ({}));
   return { response, data };
 }

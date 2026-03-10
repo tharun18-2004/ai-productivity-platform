@@ -52,6 +52,7 @@ Useful verification commands:
 - set SMOKE_OWNER_EMAIL=owner@example.com && set SMOKE_ADMIN_EMAIL=admin@example.com && npm run smoke:permissions
 - set SMOKE_OWNER_EMAIL=owner@example.com && npm run smoke:isolation
 - set SMOKE_OWNER_EMAIL=owner@example.com && set SMOKE_INVITE_EMAIL=invitee@example.com && npm run smoke:members
+- add SMOKE_SUPABASE_TOKEN=<supabase_access_token> to run smokes against a deployed site that requires Authorization headers
 
 Production notes:
 - Rotate exposed secrets immediately if any key was shared or pasted during testing.

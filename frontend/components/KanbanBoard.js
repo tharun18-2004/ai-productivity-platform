@@ -65,6 +65,11 @@ export default function KanbanBoard() {
   const [newAssignedTo, setNewAssignedTo] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [generatorPrompt, setGeneratorPrompt] = useState("");
+  const [generatorCount, setGeneratorCount] = useState(4);
+  const [generatorLoading, setGeneratorLoading] = useState(false);
+  const [generatorSchedule, setGeneratorSchedule] = useState("stagger");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -76,6 +81,7 @@ export default function KanbanBoard() {
   const [deletingTaskId, setDeletingTaskId] = useState(null);
   const [dragState, setDragState] = useState(null);
   const [dropTarget, setDropTarget] = useState("");
+  const [generatedIds, setGeneratedIds] = useState([]);
   const boardRef = useRef(initialBoard);
 
   const loadTasks = async () => {
@@ -98,6 +104,7 @@ export default function KanbanBoard() {
         throw new Error(data?.error || "Failed to load tasks");
       }
       setBoard(mapTasksToBoard(data?.tasks || []));
+      setGeneratedIds([]); // reset badge highlights on reload
     } catch (err) {
       setError(err?.message || "Unable to load tasks.");
     } finally {
@@ -143,9 +150,18 @@ export default function KanbanBoard() {
     (column) => statusFilter === "all" || column.key === statusFilter
   );
   const visibleBoard = visibleColumns.reduce((acc, column) => {
-    acc[column.key] = (board[column.key] || []).filter((task) =>
-      String(task.title || "").toLowerCase().includes(query)
-    );
+    acc[column.key] = (board[column.key] || []).filter((task) => {
+      const matchesSearch = String(task.title || "").toLowerCase().includes(query);
+      const matchesSource =
+        sourceFilter === "all"
+          ? true
+          : sourceFilter === "ai"
+            ? task.generated_by === "ai_generate"
+            : sourceFilter === "manual"
+              ? !task.generated_by
+              : true;
+      return matchesSearch && matchesSource;
+    });
     return acc;
   }, {});
 
@@ -344,6 +360,46 @@ export default function KanbanBoard() {
     }
   };
 
+  const generateTasks = async () => {
+    const prompt = generatorPrompt.trim();
+    if (!prompt) {
+      setError("Enter a prompt to generate tasks.");
+      return;
+    }
+
+    setGeneratorLoading(true);
+    setError("");
+    setSuccess("");
+    try {
+      const {
+        data: { user: authUser }
+      } = await supabase.auth.getUser();
+      const response = await fetch("/api/tasks/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: authUser?.email || workspaceState.user?.email || "",
+          prompt,
+          count: Number(generatorCount) || 4,
+          schedule_mode: generatorSchedule
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || "Could not generate tasks");
+      }
+      const newIds = (data?.tasks || []).map((t) => t.id).filter(Boolean);
+      setGeneratedIds(newIds);
+      await loadTasks();
+      setGeneratorPrompt("");
+      setSuccess(`Generated ${data?.tasks?.length || 0} tasks from AI prompt.`);
+    } catch (err) {
+      setError(err?.message || "Could not generate tasks.");
+    } finally {
+      setGeneratorLoading(false);
+    }
+  };
+
   const startEditingTask = (task) => {
     setEditingTaskId(task.id);
     setEditingTitle(task.title);
@@ -412,6 +468,40 @@ export default function KanbanBoard() {
           Add
         </button>
       </div>
+      <div className="mb-4 grid gap-2 lg:grid-cols-[1fr_150px_140px_160px]">
+        <input
+          value={generatorPrompt}
+          onChange={(e) => setGeneratorPrompt(e.target.value)}
+          placeholder='AI generate tasks (e.g., "Build a food delivery app")'
+          className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 outline-none"
+        />
+        <input
+          type="number"
+          min={1}
+          max={10}
+          value={generatorCount}
+          onChange={(e) => setGeneratorCount(e.target.value)}
+          className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 outline-none"
+        />
+        <select
+          value={generatorSchedule}
+          onChange={(e) => setGeneratorSchedule(e.target.value)}
+          className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 outline-none"
+        >
+          <option value="stagger">Stagger start tomorrow</option>
+          <option value="in_3">All due in 3 days</option>
+          <option value="in_7">All due in 7 days</option>
+          <option value="none">No due dates</option>
+        </select>
+        <button
+          type="button"
+          onClick={generateTasks}
+          disabled={generatorLoading}
+          className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          {generatorLoading ? "Generating..." : "AI generate"}
+        </button>
+      </div>
       <div className="mb-4 grid gap-2 md:grid-cols-[1fr_220px]">
         <input
           value={search}
@@ -432,6 +522,18 @@ export default function KanbanBoard() {
           ))}
         </select>
       </div>
+      <div className="mb-4 grid gap-2 md:grid-cols-[1fr_220px]">
+        <div />
+        <select
+          value={sourceFilter}
+          onChange={(event) => setSourceFilter(event.target.value)}
+          className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 outline-none"
+        >
+          <option value="all">All sources</option>
+          <option value="ai">AI-generated</option>
+          <option value="manual">Manually created</option>
+        </select>
+      </div>
       <p className="mb-4 text-xs text-slate-500">
         Workspace board with realtime updates, assignees, and due dates.
       </p>
@@ -439,6 +541,9 @@ export default function KanbanBoard() {
       {success ? (
         <p className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
           {success}
+          <a href="/tasks" className="ml-2 text-emerald-100 underline">
+            View tasks
+          </a>
         </p>
       ) : null}
       {error ? <p className="mb-4 text-sm text-rose-300">{error}</p> : null}
@@ -569,6 +674,11 @@ export default function KanbanBoard() {
                               overdue={isOverdueTask(task)}
                             />
                             <TaskAssigneeBadge assignee={task.assignee} />
+                            {(task.generated_by === "ai_generate" || generatedIds.includes(task.id)) ? (
+                              <span className="rounded-full border border-emerald-400/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-emerald-200">
+                                AI
+                              </span>
+                            ) : null}
                           </div>
                         </div>
                       )}

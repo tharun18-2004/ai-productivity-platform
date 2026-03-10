@@ -37,6 +37,7 @@ export default function NotesWorkspace() {
   const [summarizing, setSummarizing] = useState(false);
   const [creatingTask, setCreatingTask] = useState(false);
   const [deletingNote, setDeletingNote] = useState(false);
+  const [convertingFromNote, setConvertingFromNote] = useState(false);
   const [noteSummaries, setNoteSummaries] = useState({});
   const [summaryError, setSummaryError] = useState("");
   const [autosaveState, setAutosaveState] = useState("idle");
@@ -375,6 +376,43 @@ export default function NotesWorkspace() {
       setError(err?.message || "Could not convert note to task.");
     } finally {
       setCreatingTask(false);
+    }
+  };
+
+  const convertNoteActionsToTasks = async () => {
+    if (!selectedNote?.id) {
+      setError("Select a note first.");
+      return;
+    }
+    try {
+      setConvertingFromNote(true);
+      setError("");
+      setSuccess("");
+      const email = (await supabase.auth.getUser()).data.user?.email || "";
+      const response = await fetch("/api/notes/to-tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          note_id: selectedNote.id
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || "Could not extract action items.");
+      }
+      if (data?.tasks?.length) {
+        const titles = data.tasks.map((t) => t.title).slice(0, 5).join(" · ");
+        setSuccess(
+          `Created ${data.tasks.length} task${data.tasks.length === 1 ? "" : "s"} from action items: ${titles}`
+        );
+      } else {
+        setSuccess(data?.message || "No action items detected.");
+      }
+    } catch (err) {
+      setError(err?.message || "Could not extract action items.");
+    } finally {
+      setConvertingFromNote(false);
     }
   };
 
@@ -796,6 +834,14 @@ export default function NotesWorkspace() {
             className="rounded-xl border border-cyan-400/25 bg-cyan-500/10 px-3 py-2 text-sm text-cyan-200 transition hover:bg-cyan-500/20 disabled:opacity-60"
           >
             {creatingTask ? "Creating task..." : "Convert to task"}
+          </button>
+          <button
+            type="button"
+            onClick={convertNoteActionsToTasks}
+            disabled={convertingFromNote}
+            className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200 transition hover:bg-emerald-500/20 disabled:opacity-60"
+          >
+            {convertingFromNote ? "Extracting..." : "AI action items → tasks"}
           </button>
           <button
             type="button"

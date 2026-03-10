@@ -52,7 +52,7 @@ export default async function handler(req, res) {
     if (req.method === "GET") {
       const { data, error } = await supabase
         .from("tasks")
-        .select("id,title,status,user_id,workspace_id,assigned_to,due_date,created_at")
+        .select("id,title,status,user_id,workspace_id,assigned_to,due_date,created_at,generated_by")
         .eq("workspace_id", context.workspace.id)
         .order("created_at", { ascending: false });
 
@@ -105,7 +105,7 @@ export default async function handler(req, res) {
       const { data, error } = await supabase
         .from("tasks")
         .insert(payload)
-        .select("id,title,status,user_id,workspace_id,assigned_to,due_date,created_at")
+        .select("id,title,status,user_id,workspace_id,assigned_to,due_date,created_at,generated_by")
         .single();
 
       if (error) return res.status(500).json({ error: error.message });

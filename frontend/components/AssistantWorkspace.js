@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
+import { useFreeUsage } from "../lib/useFreeUsage";
 
 const initialTask = "summarize";
-const AI_USAGE_LIMIT = 25;
 
 function buildEmptyChatMessage() {
   return {
@@ -57,7 +57,6 @@ export default function AssistantWorkspace() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [sidebarLoading, setSidebarLoading] = useState(false);
-  const [usageLoading, setUsageLoading] = useState(false);
   const [error, setError] = useState("");
   const [conversations, setConversations] = useState([]);
   const [selectedConversationId, setSelectedConversationId] = useState(null);
@@ -71,7 +70,7 @@ export default function AssistantWorkspace() {
   const [exportingMessageId, setExportingMessageId] = useState(null);
   const [savingNoteMessageId, setSavingNoteMessageId] = useState(null);
   const [success, setSuccess] = useState("");
-  const [aiUsageCount, setAiUsageCount] = useState(0);
+  const { remaining, total, loading: usageLoading, refreshUsage } = useFreeUsage();
   const messagesEndRef = useRef(null);
   const taskNames = {
     summarize: "summary",
@@ -85,8 +84,9 @@ export default function AssistantWorkspace() {
   };
 
   const trimmedText = text.trim();
-  const usageRemaining = Math.max(0, AI_USAGE_LIMIT - aiUsageCount);
-  const limitReached = aiUsageCount >= AI_USAGE_LIMIT;
+  const usageRemaining =
+    remaining === null || total === null ? null : Math.max(0, Number(remaining));
+  const limitReached = usageRemaining !== null && usageRemaining <= 0;
   const selectedConversation = conversations.find((item) => item.id === selectedConversationId) || null;
   const chatTitle = selectedConversation?.title || "New request";
 
@@ -121,35 +121,6 @@ export default function AssistantWorkspace() {
     };
 
     loadConversations();
-  }, []);
-
-  useEffect(() => {
-    const loadUsage = async () => {
-      setUsageLoading(true);
-      try {
-        const {
-          data: { user }
-        } = await supabase.auth.getUser();
-        const params = new URLSearchParams();
-        if (user?.email) {
-          params.set("email", user.email);
-        }
-        const response = await fetch(
-          params.toString() ? `/api/dashboard?${params.toString()}` : "/api/dashboard"
-        );
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data?.error || "Could not load AI usage.");
-        }
-        setAiUsageCount(Number(data?.ai_requests || 0));
-      } catch {
-        setAiUsageCount(0);
-      } finally {
-        setUsageLoading(false);
-      }
-    };
-
-    loadUsage();
   }, []);
 
   useEffect(() => {
@@ -211,7 +182,8 @@ export default function AssistantWorkspace() {
     const content = text.trim();
     if (!content || loading) return;
     if (limitReached) {
-      setError(`Free plan AI limit reached. You have used ${AI_USAGE_LIMIT} of ${AI_USAGE_LIMIT} requests.`);
+      const cap = total ?? 25;
+      setError(`Free plan AI limit reached. You have used ${cap} of ${cap} requests.`);
       setSuccess("");
       return;
     }
@@ -313,7 +285,7 @@ export default function AssistantWorkspace() {
           task
         }
       ]);
-      setAiUsageCount((prev) => prev + 1);
+      refreshUsage?.();
 
       setConversations((prev) =>
         prev
@@ -783,7 +755,9 @@ export default function AssistantWorkspace() {
             <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-slate-300">
               {usageLoading
                 ? "Loading AI usage..."
-                : `Free plan usage: ${aiUsageCount}/${AI_USAGE_LIMIT}`}
+                : remaining === null || total === null
+                  ? "Free plan: loading"
+                  : `Free plan: ${usageRemaining}/${total} left`}
             </span>
             <span
               className={`rounded-full px-3 py-1 ${
@@ -798,7 +772,9 @@ export default function AssistantWorkspace() {
                 ? "Limit reached"
                 : loading
                   ? `Processing ${taskNames[task]}...`
-                  : `${usageRemaining} requests remaining`}
+                  : usageRemaining === null
+                    ? "Requests remaining: loading"
+                    : `${usageRemaining} requests remaining`}
             </span>
           </div>
         </header>

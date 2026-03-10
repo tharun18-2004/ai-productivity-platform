@@ -20,6 +20,24 @@ export function DashboardHome({
     recent_activity_count: 0
   };
 
+  const insights = (() => {
+    const completed = metrics.completedTasks || 0;
+    const pending = metrics.pendingTasks || 0;
+    const weekly = overview.weekly_productivity || [];
+    const bestDay =
+      weekly.reduce(
+        (best, day) =>
+          day.tasks > (best.tasks || 0) ? day : best,
+        weekly[0] || { day: "", tasks: 0 }
+      )?.day || "N/A";
+
+    return [
+      `Tasks completed this week: ${completed}`,
+      `Pending tasks: ${pending}`,
+      `Best productivity day: ${bestDay}`
+    ];
+  })();
+
   return (
     <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
       <div className="space-y-4">
@@ -77,6 +95,17 @@ export function DashboardHome({
           <MetricCard label="Team Done" value={`${teamStats.completed_tasks || 0}`} />
           <MetricCard label="Recent Activity" value={`${teamStats.recent_activity_count || 0}`} />
         </div>
+
+        <SurfaceCard title="AI Insights">
+          <div className="space-y-1 text-sm text-slate-200">
+            {insights.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+            <p className="text-xs text-slate-500">
+              Insights are generated from your workspace tasks, notes, and weekly activity.
+            </p>
+          </div>
+        </SurfaceCard>
 
         <SurfaceCard title="Weekly Performance">
           <WeeklyPerformanceChart data={overview.weekly_productivity} />
