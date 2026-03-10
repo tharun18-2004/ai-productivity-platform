@@ -69,7 +69,7 @@ export default async function handler(req, res) {
     const { data: existingNote, error: existingError } = await supabase
       .from("notes")
       .select(
-        "id,user_id,workspace_id,title,content,category,tags,pinned,editor_mode,created_at"
+        "id,user_id,workspace_id,title,content,video_url,video_type,category,tags,pinned,editor_mode,created_at"
       )
       .eq("id", noteId)
       .eq("workspace_id", context.workspace.id)
@@ -116,14 +116,25 @@ export default async function handler(req, res) {
     const tags = sanitizeTags(req.body?.tags);
     const pinned = Boolean(req.body?.pinned);
     const editorMode = sanitizeEditorMode(req.body?.editor_mode);
+    const video_url = req.body?.video_url ? String(req.body.video_url) : null;
+    const video_type = req.body?.video_type ? String(req.body.video_type) : null;
 
     const { data, error } = await supabase
       .from("notes")
-      .update({ title, content, category, tags, pinned, editor_mode: editorMode })
+      .update({
+        title,
+        content,
+        video_url,
+        video_type,
+        category,
+        tags,
+        pinned,
+        editor_mode: editorMode
+      })
       .eq("id", noteId)
       .eq("workspace_id", context.workspace.id)
       .select(
-        "id,user_id,workspace_id,title,content,category,tags,pinned,editor_mode,created_at"
+        "id,user_id,workspace_id,title,content,video_url,video_type,category,tags,pinned,editor_mode,created_at"
       )
       .single();
 

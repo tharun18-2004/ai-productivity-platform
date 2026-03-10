@@ -32,6 +32,8 @@ export default function NotesWorkspace() {
   const [loading, setLoading] = useState(false);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [videoInput, setVideoInput] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [summarizing, setSummarizing] = useState(false);
@@ -50,6 +52,8 @@ export default function NotesWorkspace() {
     notes[0] || {
       title: "",
       content: "",
+      video_url: null,
+      video_type: null,
       category: "idea",
       tags: [],
       pinned: false,
@@ -167,6 +171,14 @@ export default function NotesWorkspace() {
   }, [selectedId]);
 
   useEffect(() => {
+    if (selectedNote?.video_type === "youtube") {
+      setVideoInput(selectedNote.video_url || "");
+    } else {
+      setVideoInput("");
+    }
+  }, [selectedId, selectedNote?.video_url, selectedNote?.video_type]);
+
+  useEffect(() => {
     if (selectedNote?.editor_mode !== "rich" || !richEditorRef.current) return;
     const nextHtml = getRichEditorContent(selectedNote?.content || "");
     if (richEditorRef.current.innerHTML !== nextHtml) {
@@ -197,6 +209,8 @@ export default function NotesWorkspace() {
     selectedId,
     selectedNote?.title,
     selectedNote?.content,
+    selectedNote?.video_url,
+    selectedNote?.video_type,
     selectedNote?.category,
     selectedNote?.pinned,
     selectedNote?.editor_mode,
@@ -224,6 +238,8 @@ export default function NotesWorkspace() {
           email: workspaceState.user?.email || "",
           title: current.title,
           content: current.content,
+          video_url: current.video_url,
+          video_type: current.video_type,
           category: current.category,
           tags: current.tags,
           pinned: current.pinned,
@@ -264,6 +280,8 @@ export default function NotesWorkspace() {
             email: (await supabase.auth.getUser()).data.user?.email || "",
             title: "Untitled note",
             content: "",
+            video_url: null,
+            video_type: null,
             category: nextCategory,
             tags: nextTags,
             pinned: nextPinned,
@@ -636,6 +654,104 @@ export default function NotesWorkspace() {
     }
   };
 
+  const handleYouTubeAttach = () => {
+    if (!selectedNote?.id) {
+      setError("Select or create a note first.");
+      return;
+    }
+    const videoId = extractYouTubeId(videoInput);
+    if (!videoId) {
+      setError("Enter a valid YouTube link.");
+      return;
+    }
+
+    const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+    const nextNote = { ...selectedNote, video_url: embedUrl, video_type: "youtube" };
+    setNotes((prev) =>
+      prev.map((note) =>
+        note.id === selectedId ? { ...note, video_url: embedUrl, video_type: "youtube" } : note
+      )
+    );
+    setVideoInput(embedUrl);
+    setError("");
+    setSuccess("YouTube video attached.");
+    persistSelected(nextNote);
+  };
+
+  const handleVideoUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !selectedNote?.id) return;
+
+    if (file.size > 50 * 1024 * 1024) {
+      setError("Max upload size is 50MB.");
+      event.target.value = "";
+      return;
+    }
+
+    if (!/(mp4|webm)$/i.test(file.type) && !/(mp4|webm)$/i.test(file.name)) {
+      setError("Only mp4 or webm files are allowed.");
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      setUploadingVideo(true);
+      setError("");
+      setSuccess("");
+
+      const {
+        data: { user }
+      } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("You must be signed in to upload videos.");
+      }
+
+      const safeName = `${Date.now()}-${file.name}`;
+      const path = `videos/${selectedNote.id}/${safeName}`;
+      const upload = await supabase.storage.from("videos").upload(path, file, { upsert: false });
+
+      if (upload.error) {
+        throw new Error(upload.error.message || "Video upload failed.");
+      }
+
+      const { data: publicData } = supabase.storage.from("videos").getPublicUrl(path);
+      const publicUrl = publicData?.publicUrl;
+      if (!publicUrl) {
+        throw new Error("Could not get public URL for uploaded video.");
+      }
+
+      const nextNote = { ...selectedNote, video_url: publicUrl, video_type: "upload" };
+      setNotes((prev) =>
+        prev.map((note) =>
+          note.id === selectedId ? { ...note, video_url: publicUrl, video_type: "upload" } : note
+        )
+      );
+      setVideoInput("");
+      await persistSelected(nextNote);
+      setSuccess("Video uploaded and attached to note.");
+    } catch (err) {
+      setError(
+        err?.message ||
+          "Could not upload video. Ensure the 'videos' storage bucket exists and you are signed in."
+      );
+    } finally {
+      event.target.value = "";
+      setUploadingVideo(false);
+    }
+  };
+
+  const clearVideo = () => {
+    if (!selectedNote?.id) return;
+    const nextNote = { ...selectedNote, video_url: null, video_type: null };
+    setNotes((prev) =>
+      prev.map((note) => (note.id === selectedId ? { ...note, video_url: null, video_type: null } : note))
+    );
+    setVideoInput("");
+    setSuccess("Video removed from note.");
+    setError("");
+    persistSelected(nextNote);
+  };
+
   const deleteSelectedNote = async () => {
     if (!selectedNote?.id) return;
 
@@ -920,6 +1036,58 @@ export default function NotesWorkspace() {
         </div>
 
         <div className="mb-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div>
+              <h4 className="text-sm font-semibold text-white">Video</h4>
+              <p className="text-xs text-slate-500">Attach a YouTube link or upload an mp4/webm (≤50MB).</p>
+            </div>
+            {selectedNote?.video_url ? (
+              <button
+                type="button"
+                onClick={clearVideo}
+                className="text-xs text-rose-300 underline-offset-2 hover:underline"
+              >
+                Remove video
+              </button>
+            ) : null}
+          </div>
+          <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+            <input
+              value={videoInput}
+              onChange={(e) => setVideoInput(e.target.value)}
+              placeholder="Paste YouTube link (watch or share URL)"
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 outline-none"
+            />
+            <button
+              type="button"
+              onClick={handleYouTubeAttach}
+              disabled={!videoInput.trim() || !selectedNote?.id}
+              className="rounded-xl bg-red-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-60"
+            >
+              Attach YouTube
+            </button>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <label className="cursor-pointer rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-200">
+              {uploadingVideo ? "Uploading video..." : "Upload video"}
+              <input
+                type="file"
+                accept="video/mp4,video/webm"
+                className="hidden"
+                onChange={handleVideoUpload}
+                disabled={uploadingVideo || !selectedNote?.id}
+              />
+            </label>
+            <p className="text-[11px] text-slate-500">Allowed: mp4, webm · Max 50MB · Auth required</p>
+          </div>
+          {selectedNote?.video_url ? (
+            <div className="mt-3 overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+              {renderVideoPlayer(selectedNote)}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mb-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
           <div className="mb-3 flex flex-wrap gap-2">
             {editorTools.map((tool) => (
               <button
@@ -977,6 +1145,11 @@ export default function NotesWorkspace() {
                   : renderMarkdown(selectedNote?.content || "")
             }}
           />
+          {selectedNote?.video_url && selectedNote?.video_type ? (
+            <div className="mt-4 overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+              {renderVideoPlayer(selectedNote)}
+            </div>
+          ) : null}
         </div>
 
         <div className="mb-3 rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
@@ -1061,6 +1234,8 @@ function serializeNote(note) {
   return JSON.stringify({
     title: note?.title || "",
     content: note?.content || "",
+    video_url: note?.video_url || null,
+    video_type: note?.video_type || null,
     category: note?.category || "idea",
     tags: note?.tags || [],
     pinned: Boolean(note?.pinned),
@@ -1072,6 +1247,8 @@ function normalizeNote(note) {
   if (!note) return null;
   return {
     ...note,
+    video_url: note.video_url || null,
+    video_type: note.video_type || null,
     category: String(note.category || "idea").toLowerCase(),
     tags: Array.isArray(note.tags) ? note.tags : [],
     pinned: Boolean(note.pinned),
@@ -1187,6 +1364,47 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function extractYouTubeId(url) {
+  if (!url) return null;
+  const value = String(url).trim();
+  const patterns = [
+    /youtu\.be\/([\w-]{6,})/i,
+    /youtube\.com\/(?:watch\?v=|embed\/|v\/)([\w-]{6,})/i,
+    /youtube\.com\/.+?[?&]v=([\w-]{6,})/i
+  ];
+  for (const pattern of patterns) {
+    const match = value.match(pattern);
+    if (match && match[1]) return match[1];
+  }
+  return null;
+}
+
+function renderVideoPlayer(note) {
+  if (!note?.video_url || !note?.video_type) return null;
+  if (note.video_type === "youtube") {
+    return (
+      <iframe
+        title="YouTube video"
+        src={note.video_url}
+        className="h-[320px] w-full md:h-[400px]"
+        allowFullScreen
+      />
+    );
+  }
+
+  if (note.video_type === "upload") {
+    return (
+      <video controls className="h-[320px] w-full md:h-[400px] bg-black" preload="metadata">
+        <source src={note.video_url} type="video/mp4" />
+        <source src={note.video_url} type="video/webm" />
+        Your browser does not support the video tag.
+      </video>
+    );
+  }
+
+  return null;
 }
 
 function StatCard({ label, value }) {

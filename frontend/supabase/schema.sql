@@ -101,6 +101,8 @@ create table if not exists public.notes (
   workspace_id bigint references public.workspaces(id) on delete cascade,
   title text not null,
   content text not null default '',
+  video_url text,
+  video_type text,
   category text not null default 'idea',
   tags text[] not null default '{}',
   pinned boolean not null default false,
