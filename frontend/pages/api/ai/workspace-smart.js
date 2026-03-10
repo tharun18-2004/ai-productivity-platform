@@ -36,6 +36,9 @@ function extractItems(text, max = 10) {
   normalized = normalized.replace(/^(convert this text into tasks|meeting notes|notes|tasks)\s*/i, "");
 
   if (!normalized) return [];
+  const wordCount = normalized.split(/\s+/).filter(Boolean).length;
+  const looksLikeList = /[,•\-;\n]/.test(normalized);
+  if (wordCount < 5 && !looksLikeList) return [];
   const parts = normalized
     .split(/[\r\n]+|[•\-]\s+|(?<=[.;])\s+|,\s+/)
     .map((p) =>
