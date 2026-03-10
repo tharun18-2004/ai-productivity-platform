@@ -82,7 +82,7 @@ function fallbackTasks(text) {
 }
 
 function fallbackImprove(text) {
-  const normalized = String(text || "").trim();
+  const normalized = basicNormalize(String(text || ""));
   if (!normalized) throw new Error("Please provide text to improve.");
   const lower = normalized.toLowerCase();
 
@@ -98,12 +98,24 @@ function fallbackImprove(text) {
   }
 
   // Fix a couple of very short, common typos (e.g., "todayi s tuesday")
-  let improved = normalized.replace(/\btodayi\s*s\b/gi, "today is").replace(/\btoday\s*s\b/gi, "today is");
+  let improved = normalized
+    .replace(/\btodayi\s*s\b/gi, "today is")
+    .replace(/\btoday\s*i[s']?\b/gi, "today is")
+    .replace(/\btoday\s*is\s*/gi, "today is ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 
   improved = capitalize(improved);
   improved = capitalizeWeekdays(improved);
   if (!/[.!?]$/.test(improved)) improved += ".";
   return improved;
+}
+
+function basicNormalize(str) {
+  return str
+    .replace(/^["'“”]+|["'“”]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function capitalize(str) {
