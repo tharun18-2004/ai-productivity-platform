@@ -29,8 +29,11 @@ function normalizeText(text) {
 
 function extractItems(text, max = 10) {
   let normalized = normalizeText(text);
-  // Strip common command prefixes
-  normalized = normalized.replace(/^(convert this text into tasks:|meeting notes:|notes:|tasks:)\s*/i, "");
+  if (normalized.includes(":")) {
+    const parts = normalized.split(":");
+    normalized = parts.slice(1).join(":").trim() || normalized;
+  }
+  normalized = normalized.replace(/^(convert this text into tasks|meeting notes|notes|tasks)\s*/i, "");
 
   if (!normalized) return [];
   const parts = normalized
@@ -39,6 +42,7 @@ function extractItems(text, max = 10) {
       p
         .replace(/^[\d\s.()-]+\s*/, "") // drop leading numbers/bullets
         .replace(/[.;,]\s*$/, "") // drop trailing punctuation
+        .replace(/\s+\d+$/, "") // drop trailing numbers
         .trim()
     )
     .filter(
@@ -115,11 +119,15 @@ export default async function handler(req, res) {
         : await taskText(text);
     }
     if (intents.includes("actions")) {
-      const actionCandidates = extractItems(text, 10);
-      const verbs = /(finish|fix|deploy|test|review|ship|build|prepare|check|complete)/i;
-      let actions = actionCandidates.filter((item) => verbs.test(item));
-      if (!actions.length && results.tasks?.length) {
-        actions = results.tasks.slice(0, 8);
+      const verbs = /(finish|fix|deploy|test|review|ship|build|prepare|check|complete|add|write)/i;
+      let actions = [];
+      if (results.tasks?.length) {
+        actions = results.tasks.filter((item) => verbs.test(item)).slice(0, 8);
+        if (!actions.length) actions = results.tasks.slice(0, 8);
+      } else {
+        const actionCandidates = extractItems(text, 10);
+        actions = actionCandidates.filter((item) => verbs.test(item)).slice(0, 8);
+        if (!actions.length) actions = actionCandidates.slice(0, 8);
       }
       results.action_items = actions;
     }
