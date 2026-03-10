@@ -140,6 +140,8 @@ function fallbackImprove(text) {
     .replace(/^i\s+think\s+i\s+(good|bad|fine|ok|okay|great|ready|done|happy|sad|busy|available|correct|wrong)\b/i, (_, adj) => `I think I am ${adj}`)
     .replace(/^i\s+good\s+boy\b/i, "I am a good boy")
     .replace(/^i\s+good\b/i, "I am good")
+    .replace(/\bi\s+was\s+go\s+([a-z].*)/i, (_, rest) => `I went ${rest}`)
+    .replace(/\bforgot\s+bring\b/gi, "forgot to bring")
     .replace(/\s{2,}/g, " ")
     .trim();
 
