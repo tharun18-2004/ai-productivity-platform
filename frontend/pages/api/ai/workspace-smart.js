@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseServerClient } from "../../../lib/supabaseServer";
-import { recordUsageEvent } from "../../../lib/usageServer";
+// Usage metering disabled
+// import { recordUsageEvent } from "../../../lib/usageServer";
 import { resolveWorkspaceContextFromRequest } from "../../../lib/workspaceServer";
 import { summarizeText, taskText, improveText } from "./helpers/smartAiHelpers";
 
@@ -149,13 +150,14 @@ export default async function handler(req, res) {
       results.action_items = actions;
     }
 
-    if (canLogUsage && context.workspace?.id) {
-      await recordUsageEvent(supabase, {
-        workspaceId: context.workspace?.id,
-        userId: context.user?.id,
-        eventType: "ai_smart"
-      });
-    }
+    // Usage metering disabled
+    // if (canLogUsage && context.workspace?.id) {
+    //   await recordUsageEvent(supabase, {
+    //     workspaceId: context.workspace?.id,
+    //     userId: context.user?.id,
+    //     eventType: "ai_smart"
+    //   });
+    // }
 
     return res.status(200).json({
       intent: intents,
