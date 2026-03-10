@@ -58,7 +58,7 @@ export default async function handler(req, res) {
 
   try {
     const context = await resolveWorkspaceContextFromRequest(req, {
-      createUserIfMissing: false
+      createUserIfMissing: true
     });
 
     if (!context.user || !context.workspace || !context.membership) {

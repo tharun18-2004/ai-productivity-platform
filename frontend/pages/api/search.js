@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   try {
     const queryText = String(req.query.q || "").trim().toLowerCase();
     const context = await resolveWorkspaceContextFromRequest(req, {
-      createUserIfMissing: false
+      createUserIfMissing: true
     });
 
     if (!context.user || !context.workspace || !context.membership) {

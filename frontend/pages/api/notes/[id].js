@@ -54,7 +54,7 @@ export default async function handler(req, res) {
     const supabase = getSupabaseServerClient();
     const context = await resolveWorkspaceContextFromRequest(req, {
       supabase,
-      createUserIfMissing: false
+      createUserIfMissing: true
     });
     const noteId = Number(req.query.id);
 
