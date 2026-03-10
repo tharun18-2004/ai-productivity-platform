@@ -102,6 +102,8 @@ function fallbackImprove(text) {
     .replace(/\btodayi\s*s\b/gi, "today is")
     .replace(/\btoday\s*i[s']?\b/gi, "today is")
     .replace(/\btoday\s*is\s*/gi, "today is ")
+    .replace(/^i\s+good\s+boy\b/i, "I am a good boy")
+    .replace(/^i\s+good\b/i, "I am good")
     .replace(/\s{2,}/g, " ")
     .trim();
 
