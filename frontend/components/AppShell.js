@@ -45,6 +45,7 @@ export default function AppShell({ title, subtitle, children, rightHeader }) {
     plan: "Free Tier",
     avatarUrl: ""
   });
+  const [refreshingWorkspace, setRefreshingWorkspace] = useState(false);
   const workspaceState = useWorkspaceContext();
   const usage = useFreeUsage();
 
@@ -411,6 +412,11 @@ export default function AppShell({ title, subtitle, children, rightHeader }) {
     }
   };
 
+  const workspaceIssue =
+    !workspaceState.loading &&
+    !workspaceState.ready &&
+    (workspaceState.error || !workspaceState.workspace);
+
   return (
     <main
       className={`min-h-screen p-3 md:p-5 ${
@@ -419,6 +425,37 @@ export default function AppShell({ title, subtitle, children, rightHeader }) {
           : "bg-[radial-gradient(circle_at_top_left,#1e1b4b_0%,#030712_42%,#020617_100%)]"
       }`}
     >
+      {workspaceIssue ? (
+        <div className="mx-auto mb-3 max-w-[1500px]">
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+            <span>
+              {workspaceState.error && /workspace not found/i.test(workspaceState.error)
+                ? "Workspace session is missing. Sign in again or retry loading your workspace."
+                : "Workspace isn’t ready yet. Retry loading or sign in again."}
+            </span>
+            <button
+              type="button"
+              disabled={refreshingWorkspace || typeof workspaceState.refresh !== "function"}
+              onClick={async () => {
+                if (typeof workspaceState.refresh !== "function") return;
+                setRefreshingWorkspace(true);
+                try {
+                  await workspaceState.refresh();
+                } finally {
+                  setRefreshingWorkspace(false);
+                }
+              }}
+              className="rounded-lg bg-amber-500 px-2 py-1 text-xs font-semibold text-slate-950 transition hover:bg-amber-400 disabled:opacity-60"
+            >
+              {refreshingWorkspace ? "Retrying..." : "Retry workspace load"}
+            </button>
+            <span className="text-[11px] text-amber-200/85">
+              If it persists, sign out and sign back in to refresh your session.
+            </span>
+          </div>
+        </div>
+      ) : null}
+
       <div
         className={`mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-[1500px] overflow-hidden rounded-[28px] border backdrop-blur ${
           theme === "light"
