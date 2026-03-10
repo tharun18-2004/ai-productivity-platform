@@ -3,7 +3,7 @@ import { getSupabaseServerClient } from "../../../lib/supabaseServer";
 // Usage metering disabled
 // import { recordUsageEvent } from "../../../lib/usageServer";
 import { resolveWorkspaceContextFromRequest } from "../../../lib/workspaceServer";
-import { summarizeText, taskText, improveText } from "./helpers/smartAiHelpers";
+import { summarizeText, taskText, improveText, smartAll } from "./helpers/smartAiHelpers";
 
 function detectIntent(text) {
   const lower = text.toLowerCase();
@@ -112,6 +112,21 @@ export default async function handler(req, res) {
 
     const intents = detectIntent(text);
 
+    // If OpenAI is enabled, prefer single-call structured response
+    if (process.env.OPENAI_ENABLED === "true" && process.env.OPENAI_API_KEY) {
+      const ai = await smartAll(text);
+      return res.status(200).json({
+        intent: intents,
+        results: {
+          summary: ai.summary || "",
+          tasks: ai.tasks || [],
+          improved: ai.improved_text || "",
+          action_items: ai.action_items || [],
+          project_plan: ai.plan || ""
+        }
+      });
+    }
+
     const results = {
       summary: "",
       tasks: [],
@@ -151,13 +166,6 @@ export default async function handler(req, res) {
     }
 
     // Usage metering disabled
-    // if (canLogUsage && context.workspace?.id) {
-    //   await recordUsageEvent(supabase, {
-    //     workspaceId: context.workspace?.id,
-    //     userId: context.user?.id,
-    //     eventType: "ai_smart"
-    //   });
-    // }
 
     return res.status(200).json({
       intent: intents,

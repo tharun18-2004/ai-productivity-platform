@@ -36,6 +36,32 @@ export async function improveText(text) {
   return fallbackImprove(text);
 }
 
+export async function smartAll(text) {
+  if (OPENAI_ENABLED && OPENAI_API_KEY) {
+    const raw = await callOpenAI({
+      system:
+        "You are an AI workspace assistant. Respond in JSON only with keys: summary (string), tasks (array of strings), improved_text (string), action_items (array of strings), plan (string). If a section is not applicable, use empty string or empty array. Do not include any extra keys or prose outside JSON.",
+      userText: text
+    });
+
+    const parsed = parseJsonLenient(raw);
+    return normalizeStructured(parsed);
+  }
+
+  // Fallback: reuse existing single-purpose helpers
+  const summary = fallbackSummary(text);
+  const tasksText = fallbackTasks(text);
+  const tasks = tasksText.split("\n").map((t) => t.replace(/^\d+\.\s*/, "")).filter(Boolean);
+  const improved_text = fallbackImprove(text);
+  return normalizeStructured({
+    summary,
+    tasks,
+    improved_text,
+    action_items: [],
+    plan: ""
+  });
+}
+
 async function callOpenAI({ system, userText }) {
   const response = await fetch(OPENAI_API_URL, {
     method: "POST",
@@ -233,3 +259,35 @@ function capitalizeWeekdays(str) {
 
 // Exported for lightweight fixture testing
 export const _testHelpers = { fixShortSentence, fallbackImprove };
+
+function parseJsonLenient(str) {
+  if (!str) return {};
+  const trimmed = str.trim();
+  const jsonMatch = trimmed.match(/```json\s*([\s\S]*?)\s*```/i);
+  const candidate = jsonMatch ? jsonMatch[1] : trimmed;
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    return {};
+  }
+}
+
+function normalizeStructured(obj = {}) {
+  const toArr = (v) => {
+    if (Array.isArray(v)) return v.filter(Boolean);
+    if (typeof v === "string") {
+      return v
+        .split(/\r?\n|,|\u2022|- /)
+        .map((s) => s.trim().replace(/^\d+\.\s*/, ""))
+        .filter(Boolean);
+    }
+    return [];
+  };
+  return {
+    summary: (obj.summary || "").toString().trim(),
+    tasks: toArr(obj.tasks),
+    improved_text: (obj.improved_text || obj.improved || "").toString().trim(),
+    action_items: toArr(obj.action_items || obj.actions),
+    plan: (obj.plan || obj.project_plan || "").toString().trim()
+  };
+}
