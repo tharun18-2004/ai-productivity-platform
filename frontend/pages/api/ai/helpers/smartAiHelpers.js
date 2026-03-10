@@ -111,6 +111,7 @@ function fallbackImprove(text) {
     .replace(/\btoday\s*i[s']?\b/gi, "today is")
     .replace(/\btoday\s*is\s*/gi, "today is ")
     .replace(/^(this|that)\s+not\b/i, (m, pron) => `${capitalize(pron)} is not`)
+    .replace(/^i\s+think\s+i\s+(good|bad|fine|ok|okay|great|ready|done|happy|sad|busy|available|correct|wrong)\b/i, (_, adj) => `I think I am ${adj}`)
     .replace(/^i\s+good\s+boy\b/i, "I am a good boy")
     .replace(/^i\s+good\b/i, "I am good")
     .replace(/\s{2,}/g, " ")
