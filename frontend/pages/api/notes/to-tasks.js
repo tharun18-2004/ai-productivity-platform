@@ -4,6 +4,10 @@ import { recordUsageEvent } from "../../../lib/usageServer";
 import { resolveWorkspaceContextFromRequest } from "../../../lib/workspaceServer";
 
 const MAX_ACTIONS = 10;
+const OPENAI_ENABLED = process.env.OPENAI_ENABLED === "true";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+const OPENAI_API_URL = process.env.OPENAI_API_URL || "https://api.openai.com/v1/chat/completions";
 
 function extractLines(content = "") {
   return String(content || "")
@@ -63,7 +67,24 @@ export default async function handler(req, res) {
     if (noteError) return res.status(500).json({ error: noteError.message });
     if (!note) return res.status(404).json({ error: "Note not found" });
 
-    const tasksDraft = toTasks(note.title, note.content);
+    let tasksDraft = [];
+
+    // Prefer OpenAI extraction when enabled
+    if (OPENAI_ENABLED && OPENAI_API_KEY) {
+      try {
+        const aiTasks = await aiExtractTasks(note.content);
+        if (Array.isArray(aiTasks) && aiTasks.length) {
+          tasksDraft = aiTasks.slice(0, MAX_ACTIONS).map((title) => ({ title, status: "todo" }));
+        }
+      } catch (err) {
+        console.warn("AI task extraction failed, using heuristic:", err?.message || err);
+      }
+    }
+
+    if (!tasksDraft.length) {
+      tasksDraft = toTasks(note.title, note.content);
+    }
+
     if (!tasksDraft.length) {
       return res.status(200).json({ tasks: [], message: "No action items detected." });
     }
@@ -107,4 +128,50 @@ export default async function handler(req, res) {
   } catch (err) {
     return res.status(err.statusCode || 500).json({ error: err.message || "Server error" });
   }
+}
+
+async function aiExtractTasks(text) {
+  const content = String(text || "").trim();
+  if (!content) return [];
+
+  const response = await fetch(OPENAI_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${OPENAI_API_KEY}`
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      messages: [
+        {
+          role: "system",
+          content:
+            "Extract concise, actionable tasks from the user's note. Respond ONLY with a JSON array of task titles (strings). Do not number or add status."
+        },
+        { role: "user", content: content.slice(0, 6000) }
+      ],
+      temperature: 0.2
+    })
+  });
+
+  const data = await response.json().catch(() => ({}));
+  const raw = data?.choices?.[0]?.message?.content?.trim();
+  if (!response.ok || !raw) {
+    throw new Error(raw || data?.error?.message || "OpenAI request failed");
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+    }
+  } catch (err) {
+    // If not JSON, attempt to split lines
+    return raw
+      .split(/\r?\n|\d+\.\s+|-\s+/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+  }
+
+  return [];
 }

@@ -34,6 +34,14 @@ export default function NotesWorkspace() {
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [videoInput, setVideoInput] = useState("");
+  const [timestampNotes, setTimestampNotes] = useState([]);
+  const [loadingTimestamps, setLoadingTimestamps] = useState(false);
+  const [addingTimestamp, setAddingTimestamp] = useState(false);
+  const [timestampText, setTimestampText] = useState("");
+  const [videoSummaryLoading, setVideoSummaryLoading] = useState(false);
+  const [voiceRecording, setVoiceRecording] = useState(false);
+  const [voiceUploading, setVoiceUploading] = useState(false);
+  const [youtubeReady, setYoutubeReady] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [summarizing, setSummarizing] = useState(false);
@@ -45,6 +53,11 @@ export default function NotesWorkspace() {
   const [autosaveState, setAutosaveState] = useState("idle");
   const editorRef = useRef(null);
   const richEditorRef = useRef(null);
+  const htmlVideoRef = useRef(null);
+  const youtubePlayerRef = useRef(null);
+  const youtubeContainerRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
   const autosaveTimeoutRef = useRef(null);
   const lastPersistedRef = useRef({});
   const selectedNote =
@@ -54,11 +67,16 @@ export default function NotesWorkspace() {
       content: "",
       video_url: null,
       video_type: null,
+      video_summary: null,
       category: "idea",
       tags: [],
       pinned: false,
       editor_mode: "rich"
     };
+  const youtubeElementId = useMemo(
+    () => (selectedId ? `youtube-player-${selectedId}` : "youtube-player"),
+    [selectedId]
+  );
   const canDelete = ["owner", "admin"].includes(
     String(workspaceState.membership?.role || "").toLowerCase()
   );
@@ -171,6 +189,30 @@ export default function NotesWorkspace() {
   }, [selectedId]);
 
   useEffect(() => {
+    if (!selectedNote?.id) {
+      setTimestampNotes([]);
+      return;
+    }
+    const fetchTimestamps = async () => {
+      setLoadingTimestamps(true);
+      try {
+        const response = await fetch(`/api/notes/${selectedNote.id}/timestamps`);
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data?.error || "Failed to load timestamps");
+        }
+        setTimestampNotes(data?.timestamps || []);
+      } catch (err) {
+        setTimestampNotes([]);
+        setError(err?.message || "Unable to load timestamp notes.");
+      } finally {
+        setLoadingTimestamps(false);
+      }
+    };
+    fetchTimestamps();
+  }, [selectedNote?.id]);
+
+  useEffect(() => {
     if (selectedNote?.video_type === "youtube") {
       setVideoInput(selectedNote.video_url || "");
     } else {
@@ -223,6 +265,48 @@ export default function NotesWorkspace() {
     },
     []
   );
+
+  useEffect(() => {
+    if (selectedNote?.video_type !== "youtube" || !selectedNote?.video_url) {
+      if (youtubePlayerRef.current?.destroy) {
+        youtubePlayerRef.current.destroy();
+      }
+      youtubePlayerRef.current = null;
+      setYoutubeReady(false);
+      return;
+    }
+
+    setYoutubeReady(false);
+    const videoId = extractYouTubeId(selectedNote.video_url);
+    if (!videoId) return;
+
+    const setupPlayer = () => {
+      if (!window.YT || !window.YT.Player) return;
+      if (youtubePlayerRef.current?.destroy) {
+        youtubePlayerRef.current.destroy();
+      }
+      youtubePlayerRef.current = new window.YT.Player(youtubeElementId, {
+        videoId,
+        events: {
+          onReady: () => setYoutubeReady(true)
+        }
+      });
+    };
+
+    if (window.YT && window.YT.Player) {
+      setupPlayer();
+    } else {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      window.onYouTubeIframeAPIReady = setupPlayer;
+      document.body.appendChild(tag);
+    }
+
+    return () => {
+      if (youtubePlayerRef.current?.destroy) youtubePlayerRef.current.destroy();
+      youtubePlayerRef.current = null;
+    };
+  }, [selectedNote?.video_url, selectedNote?.video_type, selectedNote?.id, youtubeElementId]);
 
   const persistSelected = async (noteOverride, options = {}) => {
     const current =
@@ -665,17 +749,25 @@ export default function NotesWorkspace() {
       return;
     }
 
-    const embedUrl = `https://www.youtube.com/embed/${videoId}`;
-    const nextNote = { ...selectedNote, video_url: embedUrl, video_type: "youtube" };
+    const embedUrl = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
+    const nextNote = {
+      ...selectedNote,
+      video_url: embedUrl,
+      video_type: "youtube",
+      video_summary: null
+    };
     setNotes((prev) =>
       prev.map((note) =>
-        note.id === selectedId ? { ...note, video_url: embedUrl, video_type: "youtube" } : note
+        note.id === selectedId
+          ? { ...note, video_url: embedUrl, video_type: "youtube", video_summary: null }
+          : note
       )
     );
     setVideoInput(embedUrl);
     setError("");
     setSuccess("YouTube video attached.");
     persistSelected(nextNote);
+    generateVideoSummary(embedUrl);
   };
 
   const handleVideoUpload = async (event) => {
@@ -720,10 +812,17 @@ export default function NotesWorkspace() {
         throw new Error("Could not get public URL for uploaded video.");
       }
 
-      const nextNote = { ...selectedNote, video_url: publicUrl, video_type: "upload" };
+      const nextNote = {
+        ...selectedNote,
+        video_url: publicUrl,
+        video_type: "upload",
+        video_summary: null
+      };
       setNotes((prev) =>
         prev.map((note) =>
-          note.id === selectedId ? { ...note, video_url: publicUrl, video_type: "upload" } : note
+          note.id === selectedId
+            ? { ...note, video_url: publicUrl, video_type: "upload", video_summary: null }
+            : note
         )
       );
       setVideoInput("");
@@ -750,6 +849,163 @@ export default function NotesWorkspace() {
     setSuccess("Video removed from note.");
     setError("");
     persistSelected(nextNote);
+  };
+
+  const generateVideoSummary = async (videoUrl) => {
+    if (!selectedNote?.id || !videoUrl) return;
+    try {
+      setVideoSummaryLoading(true);
+      const response = await fetch(`/api/notes/${selectedNote.id}/video-summary`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ video_url: videoUrl })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || "Could not generate video summary");
+      }
+      setNotes((prev) =>
+        prev.map((note) =>
+          note.id === selectedId ? { ...note, video_summary: data.summary || "" } : note
+        )
+      );
+      setSuccess("AI video summary ready.");
+    } catch (err) {
+      setError(err?.message || "Unable to summarize this video.");
+    } finally {
+      setVideoSummaryLoading(false);
+    }
+  };
+
+  const getCurrentVideoSeconds = () => {
+    if (selectedNote?.video_type === "upload" && htmlVideoRef.current) {
+      return Math.floor(htmlVideoRef.current.currentTime || 0);
+    }
+    if (selectedNote?.video_type === "youtube" && youtubePlayerRef.current?.getCurrentTime) {
+      return Math.floor(youtubePlayerRef.current.getCurrentTime());
+    }
+    return null;
+  };
+
+  const seekToTimestamp = (seconds) => {
+    if (selectedNote?.video_type === "upload" && htmlVideoRef.current) {
+      htmlVideoRef.current.currentTime = seconds;
+      htmlVideoRef.current.play().catch(() => null);
+    }
+    if (selectedNote?.video_type === "youtube" && youtubePlayerRef.current?.seekTo) {
+      youtubePlayerRef.current.seekTo(seconds, true);
+    }
+  };
+
+  const addTimestampNote = async () => {
+    if (!selectedNote?.id) {
+      setError("Select a note first.");
+      return;
+    }
+    if (selectedNote?.video_type === "youtube" && !youtubeReady) {
+      setError("Press play on the YouTube video before adding a timestamp.");
+      return;
+    }
+    const seconds = getCurrentVideoSeconds();
+    if (seconds === null || Number.isNaN(seconds)) {
+      setError("Play the video first to capture the current time.");
+      return;
+    }
+    const text = timestampText.trim() || "Timestamp note";
+    try {
+      setAddingTimestamp(true);
+      setError("");
+      const response = await fetch(`/api/notes/${selectedNote.id}/timestamps`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ timestamp: seconds, text })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || "Could not save timestamp");
+      }
+      setTimestampNotes((prev) => [data.timestamp, ...(prev || [])]);
+      setTimestampText("");
+      setSuccess("Timestamp note added.");
+    } catch (err) {
+      setError(err?.message || "Unable to add timestamp note.");
+    } finally {
+      setAddingTimestamp(false);
+    }
+  };
+
+  const startVoiceRecording = async () => {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      setError("Recording is not supported in this browser.");
+      return;
+    }
+    try {
+      setVoiceRecording(true);
+      setError("");
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      recorder.onstop = handleVoiceStop;
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+    } catch (err) {
+      setVoiceRecording(false);
+      setError(err?.message || "Could not start recording. Check microphone permissions.");
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    setVoiceRecording(false);
+  };
+
+  const handleVoiceStop = async () => {
+    mediaRecorderRef.current?.stream?.getTracks()?.forEach((track) => track.stop());
+    const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+    if (!blob.size) {
+      setError("No audio captured.");
+      return;
+    }
+    await sendVoiceForTranscription(blob);
+  };
+
+  const sendVoiceForTranscription = async (blob) => {
+    try {
+      setVoiceUploading(true);
+      const buffer = await blob.arrayBuffer();
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+      const response = await fetch("/api/notes/voice-to-text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          audioBase64: base64,
+          mimeType: blob.type || "audio/webm"
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || "Could not transcribe audio");
+      }
+      const transcript = data?.text || "";
+      if (transcript) {
+        const separator = selectedNote?.content?.trim() ? "\n\n" : "";
+        const nextContent = `${selectedNote?.content || ""}${separator}${transcript}`;
+        updateSelected("content", nextContent);
+        persistSelected({ ...selectedNote, content: nextContent });
+        setSuccess("Voice note transcribed and inserted.");
+      }
+    } catch (err) {
+      setError(err?.message || "Voice transcription failed.");
+    } finally {
+      setVoiceUploading(false);
+    }
   };
 
   const deleteSelectedNote = async () => {
@@ -1081,8 +1337,83 @@ export default function NotesWorkspace() {
             <p className="text-[11px] text-slate-500">Allowed: mp4, webm · Max 50MB · Auth required</p>
           </div>
           {selectedNote?.video_url ? (
-            <div className="mt-3 overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
-              {renderVideoPlayer(selectedNote)}
+            <div className="mt-3 space-y-3 overflow-hidden rounded-xl border border-slate-800 bg-slate-900 p-2">
+              {selectedNote?.video_type === "youtube" ? (
+                <div
+                  id={youtubeElementId}
+                  ref={youtubeContainerRef}
+                  className="aspect-video w-full overflow-hidden rounded-lg bg-black"
+                />
+              ) : (
+                <video
+                  ref={htmlVideoRef}
+                  controls
+                  className="aspect-video w-full overflow-hidden rounded-lg bg-black"
+                  preload="metadata"
+                >
+                  <source src={selectedNote.video_url} type="video/mp4" />
+                  <source src={selectedNote.video_url} type="video/webm" />
+                  Your browser does not support the video tag.
+                </video>
+              )}
+              <div className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-950 p-2 sm:flex-row sm:items-center">
+                <input
+                  value={timestampText}
+                  onChange={(e) => setTimestampText(e.target.value)}
+                  placeholder="Note for this moment (auto-inserts timestamp)"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={addTimestampNote}
+                  disabled={addingTimestamp}
+                  className="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:opacity-60"
+                >
+                  {addingTimestamp ? "Saving..." : "Add Timestamp Note"}
+                </button>
+              </div>
+              <div className="space-y-1 rounded-lg border border-slate-800 bg-slate-950 p-2">
+                <div className="flex items-center justify-between text-xs text-slate-400">
+                  <span>Timestamp notes</span>
+                  {loadingTimestamps ? <span>Loading...</span> : null}
+                </div>
+                {!loadingTimestamps && !timestampNotes.length ? (
+                  <p className="text-xs text-slate-500">No timestamp notes yet.</p>
+                ) : null}
+                {timestampNotes.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => seekToTimestamp(item.timestamp_seconds)}
+                    className="flex w-full items-center justify-between rounded-md border border-slate-800 bg-slate-900 px-3 py-2 text-left text-sm text-slate-200 transition hover:border-slate-600"
+                  >
+                    <span className="font-mono text-xs text-indigo-300">{formatTimestamp(item.timestamp_seconds)}</span>
+                    <span className="ml-3 flex-1 truncate text-slate-200">{item.text}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                <div className="mb-1 flex items-center justify-between">
+                  <h5 className="text-sm font-semibold text-white">AI Video Summary</h5>
+                  <button
+                    type="button"
+                    onClick={() => generateVideoSummary(selectedNote.video_url)}
+                    disabled={videoSummaryLoading || selectedNote?.video_type !== "youtube"}
+                    className="text-xs text-indigo-300 underline-offset-2 hover:underline disabled:opacity-60"
+                  >
+                    {videoSummaryLoading ? "Summarizing..." : "Generate"}
+                  </button>
+                </div>
+                {selectedNote?.video_summary ? (
+                  <div className="whitespace-pre-line text-sm text-slate-200">
+                    {selectedNote.video_summary}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Paste a YouTube link and click Generate to create a structured summary.
+                  </p>
+                )}
+              </div>
             </div>
           ) : null}
         </div>
@@ -1175,6 +1506,30 @@ export default function NotesWorkspace() {
           )}
         </div>
 
+        <div className="mb-3 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold text-white">Voice Notes</h4>
+            <span className="text-xs text-slate-400">
+              {voiceRecording ? "Recording..." : voiceUploading ? "Transcribing..." : "Record and insert"}
+            </span>
+          </div>
+          <p className="mb-2 text-xs text-slate-500">
+            Capture quick thoughts by speaking. We'll transcribe and insert them into the note automatically.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={voiceRecording ? stopVoiceRecording : startVoiceRecording}
+              className={`rounded-xl px-3 py-2 text-sm font-semibold text-white transition ${
+                voiceRecording ? "bg-rose-500 hover:bg-rose-600" : "bg-cyan-500 hover:bg-cyan-600"
+              }`}
+            >
+              {voiceRecording ? "Stop Recording" : "Record Voice Note"}
+            </button>
+            {voiceUploading ? <span className="text-xs text-slate-300">Transcribing...</span> : null}
+          </div>
+        </div>
+
         <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3">
           <div className="mb-3 flex items-center justify-between gap-2">
             <div>
@@ -1249,6 +1604,7 @@ function normalizeNote(note) {
     ...note,
     video_url: note.video_url || null,
     video_type: note.video_type || null,
+    video_summary: note.video_summary || null,
     category: String(note.category || "idea").toLowerCase(),
     tags: Array.isArray(note.tags) ? note.tags : [],
     pinned: Boolean(note.pinned),
@@ -1364,6 +1720,16 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function formatTimestamp(seconds) {
+  const mins = Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, "0");
+  const secs = Math.floor(seconds % 60)
+    .toString()
+    .padStart(2, "0");
+  return `${mins}:${secs}`;
 }
 
 function extractYouTubeId(url) {
