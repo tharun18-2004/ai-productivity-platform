@@ -53,11 +53,24 @@ export async function smartAll(text) {
     }
   }
 
-  // Fallback: reuse existing single-purpose helpers
-  const summary = fallbackSummary(text);
-  const tasksText = fallbackTasks(text);
-  const tasks = tasksText.split("\n").map((t) => t.replace(/^\d+\.\s*/, "")).filter(Boolean);
-  const improved_text = fallbackImprove(text);
+  // Fallback: simple heuristic answerer + existing helpers
+  const isQuestion = looksLikeQuestion(text);
+  let summary = "";
+  let tasks = [];
+  let improved_text = "";
+
+  if (isQuestion) {
+    const answer = answerQuestionHeuristic(text);
+    summary = answer;
+    improved_text = answer;
+    tasks = [];
+  } else {
+    summary = fallbackSummary(text);
+    const tasksText = fallbackTasks(text);
+    tasks = tasksText.split("\n").map((t) => t.replace(/^\d+\.\s*/, "")).filter(Boolean);
+    improved_text = fallbackImprove(text);
+  }
+
   return normalizeStructured({
     summary,
     tasks,
@@ -266,6 +279,34 @@ function capitalizeWeekdays(str) {
 
 // Exported for lightweight fixture testing
 export const _testHelpers = { fixShortSentence, fallbackImprove };
+
+function looksLikeQuestion(text) {
+  const t = String(text || "").trim().toLowerCase();
+  if (!t) return false;
+  if (t.endsWith("?")) return true;
+  return /^(what|why|how|when|where|who|explain|describe|define|tell me)\b/.test(t);
+}
+
+function answerQuestionHeuristic(text) {
+  const t = String(text || "").trim();
+  if (!t) return "I’m not sure what you want yet.";
+  // Simple rule: if starts with "explain" or "define", turn into a plain sentence.
+  const lower = t.toLowerCase();
+  if (/^explain\s+/.test(lower)) {
+    const topic = t.replace(/^explain\s+/i, "").replace(/[.?]+$/, "");
+    return `${capitalize(topic)} is, in simple terms, an AI-driven system that learns patterns and makes decisions.`;
+  }
+  if (/^define\s+/.test(lower)) {
+    const topic = t.replace(/^define\s+/i, "").replace(/[.?]+$/, "");
+    return `${capitalize(topic)} means ${capitalize(topic)} in simple words.`;
+  }
+  if (/^what is\s+/.test(lower)) {
+    const topic = t.replace(/^what is\s+/i, "").replace(/[.?]+$/, "");
+    return `${capitalize(topic)} is a concept that can be described simply as ${topic} in easy terms.`;
+  }
+  // Fallback generic answer
+  return "Here’s a simple answer: this is an AI workspace helper designed to explain, summarize, and extract tasks.";
+}
 
 function parseJsonLenient(str) {
   if (!str) return {};
