@@ -28,12 +28,26 @@ function normalizeText(text) {
 }
 
 function extractItems(text, max = 10) {
-  const normalized = normalizeText(text);
+  let normalized = normalizeText(text);
+  // Strip common command prefixes
+  normalized = normalized.replace(/^(convert this text into tasks:|meeting notes:|notes:|tasks:)\s*/i, "");
+
   if (!normalized) return [];
   const parts = normalized
-    .split(/[\r\n]+|[•\-]\s+|(?<=[.;])\s+/)
-    .map((p) => p.replace(/^[\d.]+\s*/, "").trim())
-    .filter((p) => p.length >= 3);
+    .split(/[\r\n]+|[•\-]\s+|(?<=[.;])\s+|,\s+/)
+    .map((p) =>
+      p
+        .replace(/^[\d\s.()-]+\s*/, "") // drop leading numbers/bullets
+        .replace(/[.;,]\s*$/, "") // drop trailing punctuation
+        .trim()
+    )
+    .filter(
+      (p) =>
+        p.length >= 3 &&
+        !/^convert this text/i.test(p) &&
+        !/^summarize and extract/i.test(p) &&
+        !/^meeting notes/i.test(p)
+    );
   const seen = new Set();
   const items = [];
   for (const p of parts) {
