@@ -11,7 +11,7 @@ function detectIntent(text) {
 
   // For very short, non-list inputs, default to improve (and optional summary)
   if (wordCount < 6 && !looksLikeList) {
-    return ["improve", "summary"];
+    return ["improve"];
   }
 
   const intents = new Set();
