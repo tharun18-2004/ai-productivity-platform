@@ -11,7 +11,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Supabase client missing (check env keys)." });
     }
 
-    if (!context.user || !context.workspace || !context.membership) {
+    if (!context.workspace) {
       return res.status(404).json({ error: "Workspace not found" });
     }
 
@@ -23,6 +23,7 @@ export default async function handler(req, res) {
         .order("created_at", { ascending: false })
         .limit(20);
 
+      // If user_id is present, filter; otherwise return workspace-wide notifications
       const query = context.user?.id ? baseQuery.eq("user_id", context.user.id) : baseQuery;
       const { data, error } = await query;
 
@@ -40,14 +41,7 @@ export default async function handler(req, res) {
     if (req.method === "PUT") {
       const notificationId = req.body?.id ? Number(req.body.id) : null;
 
-      let query = context.supabase
-        .from("notifications")
-        .update({ is_read: true })
-        .eq("workspace_id", context.workspace.id);
-
-      if (context.user?.id) {
-        query = query.eq("user_id", context.user.id);
-      }
+      let query = context.supabase.from("notifications").update({ is_read: true }).eq("workspace_id", context.workspace.id);
 
       if (notificationId) {
         query = query.eq("id", notificationId);
