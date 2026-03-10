@@ -20,13 +20,31 @@ function detectIntent(text) {
   return Array.from(intents);
 }
 
-function parseList(text) {
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => line.replace(/^[*-]\s*/, "").replace(/^\d+\.\s*/, "").trim())
-    .filter((line) => line.length > 2);
+function normalizeText(text) {
+  return String(text || "")
+    .replace(/^["“”']+|["“”']+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractItems(text, max = 10) {
+  const normalized = normalizeText(text);
+  if (!normalized) return [];
+  const parts = normalized
+    .split(/[\r\n]+|[•\-]\s+|(?<=[.;])\s+/)
+    .map((p) => p.replace(/^[\d.]+\s*/, "").trim())
+    .filter((p) => p.length >= 3);
+  const seen = new Set();
+  const items = [];
+  for (const p of parts) {
+    const key = p.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      items.push(p);
+    }
+    if (items.length >= max) break;
+  }
+  return items;
 }
 
 export default async function handler(req, res) {
@@ -72,7 +90,7 @@ export default async function handler(req, res) {
     if (intents.includes("tasks") || intents.includes("plan")) {
       const taskOutput = await taskText(text);
       results.tasks_raw = taskOutput;
-      results.tasks = parseList(taskOutput);
+      results.tasks = extractItems(taskOutput, 10);
     }
     if (intents.includes("improve")) {
       results.improved = await improveText(text);
@@ -83,12 +101,13 @@ export default async function handler(req, res) {
         : await taskText(text);
     }
     if (intents.includes("actions")) {
-      results.action_items =
-        parseList(text).filter((item) => /need|do|fix|build|ship|prepare|test|review/i.test(item)) ||
-        [];
-      if (!results.action_items.length && results.tasks?.length) {
-        results.action_items = results.tasks;
+      const actionCandidates = extractItems(text, 10);
+      const verbs = /(finish|fix|deploy|test|review|ship|build|prepare|check|complete)/i;
+      let actions = actionCandidates.filter((item) => verbs.test(item));
+      if (!actions.length && results.tasks?.length) {
+        actions = results.tasks.slice(0, 8);
       }
+      results.action_items = actions;
     }
 
     if (canLogUsage && context.workspace?.id) {

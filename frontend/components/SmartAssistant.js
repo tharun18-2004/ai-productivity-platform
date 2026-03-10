@@ -84,11 +84,11 @@ export default function SmartAssistant() {
     }
   };
 
-  const tasks = useMemo(() => results?.tasks || [], [results]);
-  const actionItems = useMemo(
-    () => results?.action_items || results?.tasks || [],
-    [results]
-  );
+  const tasks = useMemo(() => (results?.tasks || []).map(toSentenceCase), [results]);
+  const actionItems = useMemo(() => {
+    const list = results?.action_items || results?.tasks || [];
+    return list.map(toSentenceCase);
+  }, [results]);
 
   const addTasksToBoard = async () => {
     if (!tasks.length) return;
@@ -228,13 +228,15 @@ export default function SmartAssistant() {
             </div>
           ) : null}
           {results?.summary ? (
-            <Card title="Summary" content={results.summary} />
+            <Card title="Summary" content={stripSummaryLabel(results.summary)} />
           ) : null}
           {tasks.length ? (
             <Card
               title="Tasks"
               content={<ul className="list-disc pl-5 space-y-1">{tasks.map((t, i) => <li key={i}>{t}</li>)}</ul>}
             />
+          ) : results && !tasks.length && !loading ? (
+            <p className="text-sm text-slate-500">No tasks detected.</p>
           ) : null}
           {results?.improved ? <Card title="Improved Text" content={results.improved} /> : null}
           {results?.project_plan ? (
@@ -264,4 +266,15 @@ function Card({ title, content }) {
       <div className="text-sm text-slate-200">{content}</div>
     </div>
   );
+}
+
+function toSentenceCase(text) {
+  const t = String(text || "").trim();
+  if (!t) return "";
+  const capped = t.charAt(0).toUpperCase() + t.slice(1);
+  return capped.replace(/\s+/g, " ");
+}
+
+function stripSummaryLabel(text) {
+  return String(text || "").replace(/^summary:\s*/i, "").trim();
 }
