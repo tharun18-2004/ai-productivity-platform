@@ -141,7 +141,7 @@ function fixShortSentence(input) {
   if (!original) return null;
   const lower = original.toLowerCase();
   const hasVerb = /\b(is|are|am|'s|was|were)\b/.test(lower);
-  if (hasVerb) return null;
+  if (hasVerb) return handleWasWereGo(lower, original);
 
   const tokens = lower.split(/\s+/);
   if (!tokens.length) return null;
@@ -196,6 +196,23 @@ function fixShortSentence(input) {
   const tail = negation ? `not ${adjToken}` : adjToken;
 
   let sentence = `${subjectFixed} ${verb} ${tail}`;
+  sentence = capitalizeWeekdays(sentence);
+  if (!/[.!?]$/.test(sentence)) sentence += ".";
+  return sentence;
+}
+
+function handleWasWereGo(lower, original) {
+  // Detect patterns like "i was go home" / "we were go office"
+  const match = lower.match(/^(i|you|we|they|those|these|he|she|it|this|that)\s+(was|were)\s+go\s+(.*)$/);
+  if (!match) return null;
+  const subject = match[1];
+  const tense = match[2]; // was | were
+  const rest = match[3].trim();
+  if (!rest) return null;
+
+  const verb = tense === "were" ? "were going" : "was going";
+  const subjectFixed = subject === "i" ? "I" : capitalize(subject);
+  let sentence = `${subjectFixed} ${verb} ${rest}`;
   sentence = capitalizeWeekdays(sentence);
   if (!/[.!?]$/.test(sentence)) sentence += ".";
   return sentence;
