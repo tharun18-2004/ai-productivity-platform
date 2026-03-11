@@ -1,7 +1,7 @@
 import { formatRelativeTime } from "../../lib/serverActivity";
 import { listWorkspaceMembers, resolveWorkspaceContextFromRequest } from "../../lib/workspaceServer";
 
-const WORKSPACE_SCOPED_COMMERCE = false;
+const WORKSPACE_SCOPED_COMMERCE = true;
 
 function dateKey(d) {
   const y = d.getFullYear();
@@ -92,6 +92,15 @@ export default async function handler(req, res) {
       .eq("workspace_id", context.workspace.id)
       .order("created_at", { ascending: false })
       .limit(10);
+    const salesQuery = context.supabase
+      .from("sales")
+      .select("id,product,price,customer,date")
+      .eq("workspace_id", context.workspace.id)
+      .order("date", { ascending: false });
+    const productsQuery = context.supabase
+      .from("products")
+      .select("id,name,price,stock", { count: "exact" })
+      .eq("workspace_id", context.workspace.id);
     const aiConversationsQuery = context.supabase
       .from("ai_conversations")
       .select("id,user_id")
@@ -103,6 +112,8 @@ export default async function handler(req, res) {
       { count: pendingCount, error: pendingError },
       { data: allTasksData, error: allTasksError },
       { data: activityLogsData, error: activityLogsError },
+      { data: salesData, error: salesError },
+      { data: productsData, count: productsCount, error: productsError },
       { data: aiConversationsData, error: aiConversationsError },
       members
     ] = await Promise.all([
@@ -111,15 +122,11 @@ export default async function handler(req, res) {
       pendingTasksQuery,
       allTasksQuery,
       activityLogsQuery,
+      salesQuery,
+      productsQuery,
       aiConversationsQuery,
       listWorkspaceMembers(context.supabase, context.workspace.id)
     ]);
-
-    const salesData = [];
-    const salesError = null;
-    const productsData = [];
-    const productsCount = 0;
-    const productsError = null;
 
     let aiMessagesQuery = context.supabase
       .from("ai_messages")
