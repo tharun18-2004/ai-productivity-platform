@@ -1311,52 +1311,63 @@ export default function NotesWorkspace() {
         </div>
           </div>
           <div className="space-y-4">
-        <div className="rounded-[24px] border border-slate-800 bg-[#0a1018] p-4">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h4 className="text-sm font-semibold text-white">Preview</h4>
-            <span className="text-xs text-slate-500">Formatted preview</span>
+        <div className="rounded-[28px] border border-slate-800/90 bg-[linear-gradient(180deg,rgba(15,22,35,0.98),rgba(7,11,18,0.98))] p-5 shadow-[0_20px_48px_rgba(0,0,0,0.28)]">
+          <div className="mb-4 flex items-start justify-between gap-3 border-b border-slate-800/80 pb-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Preview</p>
+              <h4 className="mt-1 text-base font-semibold text-white">Formatted preview</h4>
+            </div>
+            <span className="rounded-full border border-slate-700 bg-slate-900/80 px-2.5 py-1 text-[11px] font-medium text-slate-400">
+              Live note output
+            </span>
           </div>
           <div
-            className="prose prose-invert max-w-none text-sm text-slate-200"
+            className="prose prose-invert max-w-none rounded-[20px] border border-slate-800 bg-[#07101a] px-4 py-4 text-sm leading-7 text-slate-200"
             dangerouslySetInnerHTML={{
               __html: renderNotePreview(selectedNote?.content || "")
             }}
           />
         </div>
 
-        <div className="mb-3 rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h4 className="text-sm font-semibold text-white">AI Summary</h4>
-            <span className="text-xs text-slate-400">
+        <div className="rounded-[28px] border border-violet-500/20 bg-[linear-gradient(180deg,rgba(76,29,149,0.12),rgba(10,14,22,0.96))] p-5 shadow-[0_20px_48px_rgba(0,0,0,0.28)]">
+          <div className="mb-4 flex items-start justify-between gap-3 border-b border-violet-500/10 pb-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-300/80">AI Summary</p>
+              <h4 className="mt-1 text-base font-semibold text-white">Workspace assistant output</h4>
+            </div>
+            <span className="rounded-full border border-violet-400/20 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-200">
               {summarizing ? "Generating..." : "Summary output"}
             </span>
           </div>
-          <p className="mb-2 text-xs text-slate-500">
+          <p className="mb-3 text-xs leading-6 text-slate-400">
             Best for meeting notes, project updates, and rough note dumps.
           </p>
           {summaryError ? (
-            <p className="text-xs text-rose-300">{summaryError}</p>
+            <div className="rounded-[20px] border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-xs text-rose-200">
+              {summaryError}
+            </div>
           ) : noteSummaries[selectedNote?.id] ? (
-            <p className="text-sm leading-6 text-slate-200">
+            <div className="rounded-[20px] border border-violet-400/10 bg-slate-950/50 px-4 py-4 text-sm leading-7 text-slate-200">
               {noteSummaries[selectedNote.id]}
-            </p>
+            </div>
           ) : (
-            <p className="text-xs text-slate-400">
-              Click <span className="font-semibold text-violet-200">AI summary</span> to generate a summary for this note.
-            </p>
+            <div className="rounded-[20px] border border-dashed border-violet-400/15 bg-slate-950/40 px-4 py-4 text-sm leading-6 text-slate-300">
+              Click <span className="font-semibold text-violet-200">AI summary</span> to generate a polished summary for this note.
+            </div>
           )}
         </div>
 
-        <div className="rounded-[24px] border border-slate-800 bg-[#0a1018] p-4">
-          <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="rounded-[28px] border border-slate-800/90 bg-[linear-gradient(180deg,rgba(15,22,35,0.98),rgba(7,11,18,0.98))] p-5 shadow-[0_20px_48px_rgba(0,0,0,0.28)]">
+          <div className="mb-4 flex items-start justify-between gap-3 border-b border-slate-800/80 pb-3">
             <div>
-              <h4 className="text-sm font-semibold text-white">Attachments</h4>
-              <p className="text-xs text-slate-500">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Attachments</p>
+              <h4 className="mt-1 text-base font-semibold text-white">Files for this note</h4>
+              <p className="mt-2 text-xs leading-6 text-slate-400">
                 Upload screenshots or files to this note.
                 {attachments.length ? ` ${attachments.length} file${attachments.length === 1 ? "" : "s"} attached.` : ""}
               </p>
             </div>
-            <label className="cursor-pointer rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-200">
+            <label className="cursor-pointer rounded-2xl border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-xs font-semibold text-slate-100 transition hover:border-slate-500">
               {uploadingAttachment ? "Uploading..." : "Attach file"}
               <input
                 type="file"
@@ -1366,9 +1377,15 @@ export default function NotesWorkspace() {
               />
             </label>
           </div>
-          {loadingAttachments ? <p className="text-xs text-slate-400">Loading attachments...</p> : null}
+          {loadingAttachments ? (
+            <div className="rounded-[20px] border border-slate-800 bg-slate-950/50 px-4 py-4 text-xs text-slate-300">
+              Loading attachments...
+            </div>
+          ) : null}
           {!loadingAttachments && attachments.length === 0 ? (
-            <p className="text-xs text-slate-500">No attachments yet.</p>
+            <div className="rounded-[20px] border border-dashed border-slate-700 bg-slate-950/40 px-4 py-4 text-sm text-slate-400">
+              No attachments yet.
+            </div>
           ) : null}
           <div className="space-y-2">
             {attachments.map((attachment) => (
@@ -1377,10 +1394,15 @@ export default function NotesWorkspace() {
                 href={attachment.file_url}
                 target="_blank"
                 rel="noreferrer"
-                className="flex flex-col gap-1 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-200 transition hover:border-slate-600 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 rounded-[20px] border border-slate-800 bg-slate-950/60 px-4 py-3 text-sm text-slate-200 transition hover:border-slate-600 sm:flex-row sm:items-center sm:justify-between"
               >
-                <span className="truncate font-medium">{attachment.file_name}</span>
-                <span className="text-xs text-slate-500">{attachment.file_type || "file"}</span>
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-white">{attachment.file_name}</p>
+                  <p className="mt-1 text-xs text-slate-500">{attachment.file_type || "file"}</p>
+                </div>
+                <span className="rounded-full border border-slate-700 bg-slate-900/80 px-2.5 py-1 text-[11px] font-medium text-slate-400">
+                  Open
+                </span>
               </a>
             ))}
           </div>
