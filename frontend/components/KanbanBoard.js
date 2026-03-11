@@ -82,19 +82,24 @@ export default function KanbanBoard() {
   const [dragState, setDragState] = useState(null);
   const [dropTarget, setDropTarget] = useState("");
   const [generatedIds, setGeneratedIds] = useState([]);
+  const [tasksReloadToken, setTasksReloadToken] = useState(0);
   const boardRef = useRef(initialBoard);
   const tasksRetryRef = useRef(false);
 
-  const loadTasks = async ({ allowRetry = true } = {}) => {
+  const getRequestEmail = async () => {
+    const {
+      data: { user: authUser }
+    } = await supabase.auth.getUser();
+    return authUser?.email || workspaceState.user?.email || "";
+  };
+
+  const loadTasks = async () => {
     if (!workspaceState?.ready) return;
     setLoading(true);
     setError("");
     setSuccess("");
     try {
-      const {
-        data: { user: authUser }
-      } = await supabase.auth.getUser();
-      const email = authUser?.email || workspaceState.user?.email || "";
+      const email = await getRequestEmail();
       if (!email) {
         throw new Error("Sign in to load workspace tasks.");
       }
@@ -112,13 +117,11 @@ export default function KanbanBoard() {
       setGeneratedIds([]); // reset badge highlights on reload
     } catch (err) {
       const message = err?.message || "Unable to load tasks.";
-      const workspaceError = /workspace not found/i.test(message);
-      if (workspaceError && allowRetry && !tasksRetryRef.current && typeof workspaceState.refresh === "function") {
+      const workspaceError = /workspace not found|session expired or workspace missing/i.test(message);
+      if (workspaceError && !tasksRetryRef.current && typeof workspaceState.refresh === "function") {
         tasksRetryRef.current = true;
         await workspaceState.refresh();
-        setTimeout(() => {
-          loadTasks({ allowRetry: false });
-        }, 0);
+        setTasksReloadToken((current) => current + 1);
         return;
       }
       setError(
@@ -139,7 +142,7 @@ export default function KanbanBoard() {
     if (workspaceState.ready) {
       loadTasks();
     }
-  }, [workspaceState.ready]);
+  }, [workspaceState.ready, workspaceState.workspace?.id, tasksReloadToken]);
 
   useEffect(() => {
     const workspaceId = workspaceState.workspace?.id;
@@ -209,7 +212,7 @@ export default function KanbanBoard() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: workspaceState.user?.email || "",
+          email: await getRequestEmail(),
           status: to
         })
       });
@@ -269,7 +272,7 @@ export default function KanbanBoard() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: workspaceState.user?.email || "",
+          email: await getRequestEmail(),
           title: trimmedTitle,
           due_date: nextDueDate,
           assigned_to: nextAssignedTo
@@ -318,7 +321,7 @@ export default function KanbanBoard() {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: workspaceState.user?.email || ""
+          email: await getRequestEmail()
         })
       });
       const data = await response.json();
@@ -357,7 +360,7 @@ export default function KanbanBoard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: workspaceState.user?.email || "",
+          email: await getRequestEmail(),
           title,
           status: "todo",
           due_date: normalizeDueDate(newDueDate),
@@ -392,14 +395,11 @@ export default function KanbanBoard() {
     setError("");
     setSuccess("");
     try {
-      const {
-        data: { user: authUser }
-      } = await supabase.auth.getUser();
       const response = await fetch("/api/tasks/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: authUser?.email || workspaceState.user?.email || "",
+          email: await getRequestEmail(),
           prompt,
           count: Number(generatorCount) || 4,
           schedule_mode: generatorSchedule

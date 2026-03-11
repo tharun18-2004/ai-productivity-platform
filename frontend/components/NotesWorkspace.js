@@ -51,6 +51,7 @@ export default function NotesWorkspace() {
   const [noteSummaries, setNoteSummaries] = useState({});
   const [summaryError, setSummaryError] = useState("");
   const [autosaveState, setAutosaveState] = useState("idle");
+  const [notesReloadToken, setNotesReloadToken] = useState(0);
   const editorRef = useRef(null);
   const richEditorRef = useRef(null);
   const htmlVideoRef = useRef(null);
@@ -88,7 +89,7 @@ export default function NotesWorkspace() {
     return authUser?.email || workspaceState.user?.email || "";
   };
 
-  const loadNotes = async ({ allowRetry = true } = {}) => {
+  const loadNotes = async () => {
     if (!workspaceState?.ready) return;
     setLoading(true);
     setError("");
@@ -122,12 +123,10 @@ export default function NotesWorkspace() {
     } catch (err) {
       const message = normalizeWorkspaceError(err?.message || "Unable to load notes.");
       const workspaceError = /session expired or workspace missing/i.test(message);
-      if (workspaceError && allowRetry && !notesRetryRef.current && typeof workspaceState.refresh === "function") {
+      if (workspaceError && !notesRetryRef.current && typeof workspaceState.refresh === "function") {
         notesRetryRef.current = true;
         await workspaceState.refresh();
-        setTimeout(() => {
-          loadNotes({ allowRetry: false });
-        }, 0);
+        setNotesReloadToken((current) => current + 1);
         return;
       }
       setError(message);
@@ -140,7 +139,7 @@ export default function NotesWorkspace() {
     if (workspaceState.ready) {
       loadNotes();
     }
-  }, [workspaceState.ready]);
+  }, [workspaceState.ready, workspaceState.workspace?.id, notesReloadToken]);
 
   useEffect(() => {
     const workspaceId = workspaceState.workspace?.id;
@@ -205,7 +204,7 @@ export default function NotesWorkspace() {
     };
 
     fetchAttachments();
-  }, [selectedId]);
+  }, [selectedId, workspaceState.ready]);
 
   useEffect(() => {
     setSummaryError("");

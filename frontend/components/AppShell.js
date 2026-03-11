@@ -140,18 +140,27 @@ export default function AppShell({ title, subtitle, children, rightHeader }) {
   }, []);
 
   useEffect(() => {
-    loadNotifications();
-    window.addEventListener("app-profile-change", loadNotifications);
-    return () => {
-      window.removeEventListener("app-profile-change", loadNotifications);
+    const handleProfileChange = () => {
+      if (workspaceState.ready) {
+        loadNotifications();
+      }
     };
-  }, []);
 
-  useEffect(() => {
-    if (notificationsOpen) {
+    if (workspaceState.ready) {
       loadNotifications();
     }
-  }, [notificationsOpen]);
+
+    window.addEventListener("app-profile-change", handleProfileChange);
+    return () => {
+      window.removeEventListener("app-profile-change", handleProfileChange);
+    };
+  }, [workspaceState.ready]);
+
+  useEffect(() => {
+    if (notificationsOpen && workspaceState.ready) {
+      loadNotifications();
+    }
+  }, [notificationsOpen, workspaceState.ready]);
 
   useEffect(() => {
     if (!searchOpen) return undefined;
