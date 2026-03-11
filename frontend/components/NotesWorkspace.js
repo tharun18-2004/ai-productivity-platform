@@ -1031,25 +1031,27 @@ export default function NotesWorkspace() {
           </div>
         </div>
 
-        <div className="rounded-[24px] border border-violet-500/20 bg-violet-500/5 p-4">
-          <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="overflow-hidden rounded-[28px] border border-slate-800 bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(6,11,19,0.98))] shadow-[0_20px_55px_rgba(0,0,0,0.35)]">
+          <div className="border-b border-slate-800 px-5 py-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
             <div>
-              <h4 className="text-sm font-semibold text-white">Video</h4>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-300/80">Video Learning</p>
+              <h4 className="mt-1 text-lg font-semibold text-white">Attached Video</h4>
               <p className="text-xs text-slate-500">Attach a YouTube link or upload an mp4/webm (≤50MB).</p>
             </div>
             {selectedNote?.video_url ? (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setEditingVideo((current) => !current)}
-                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+                  className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
                 >
                   {editingVideo ? "Cancel" : "Change Video"}
                 </button>
                 <button
                   type="button"
                   onClick={clearVideo}
-                  className="rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20"
+                  className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20"
                 >
                   Remove Video
                 </button>
@@ -1063,19 +1065,19 @@ export default function NotesWorkspace() {
                   value={videoInput}
                   onChange={(e) => setVideoInput(e.target.value)}
                   placeholder="Paste YouTube link (watch or share URL)"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 outline-none"
+                  className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-200 outline-none"
                 />
                 <button
                   type="button"
                   onClick={handleYouTubeAttach}
                   disabled={!videoInput.trim() || !selectedNote?.id}
-                  className="rounded-xl bg-red-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-60"
+                  className="rounded-2xl bg-red-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-60"
                 >
                   Attach YouTube
                 </button>
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-3">
-                <label className="cursor-pointer rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-200">
+                <label className="cursor-pointer rounded-2xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs font-semibold text-slate-200">
                   {uploadingVideo ? "Uploading video..." : "Upload video"}
                   <input
                     type="file"
@@ -1089,25 +1091,26 @@ export default function NotesWorkspace() {
               </div>
             </>
           ) : null}
-          {selectedNote?.video_url ? (
-            <div className="mt-3 overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-900 to-slate-950 shadow-[0_0_0_1px_rgba(148,163,184,0.05)]">
-              <div className="border-b border-slate-800 px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  Attached Video
+          </div>
+          <div className="p-4">
+            {selectedNote?.video_url ? (
+              <div className="overflow-hidden rounded-[24px] border border-slate-800 bg-black shadow-[0_18px_40px_rgba(0,0,0,0.35)]">
+                {renderVideoPlayer(selectedNote)}
+              </div>
+            ) : (
+              <div className="rounded-[24px] border border-dashed border-slate-700 bg-[#0a1018] px-5 py-8 text-center">
+                <p className="text-sm font-semibold text-slate-200">No video attached yet</p>
+                <p className="mt-2 text-xs leading-6 text-slate-500">
+                  Add a tutorial, meeting recording, or product demo so the note and media stay in one workspace.
                 </p>
               </div>
-              <div className="p-3">
-                <div className="overflow-hidden rounded-xl border border-slate-800 bg-black">
-                  {renderVideoPlayer(selectedNote)}
-                </div>
-              </div>
-              <div className="border-t border-slate-800 px-4 py-3">
-                <p className="text-xs text-slate-500">
-                  Advanced timestamp notes and AI video summary are disabled for stability.
-                </p>
-              </div>
-            </div>
-          ) : null}
+            )}
+          </div>
+          <div className="border-t border-slate-800 px-5 py-3">
+            <p className="text-xs text-slate-500">
+              Advanced timestamp notes and AI video summary are disabled for stability.
+            </p>
+          </div>
         </div>
 
         <div className="mb-3 rounded-[24px] border border-slate-800 bg-[#0a1018] p-4">
