@@ -22,6 +22,7 @@ const editorTools = [
 export default function NotesWorkspace() {
   const workspaceState = useWorkspaceContext();
   const [notes, setNotes] = useState(seedNotes);
+  const [notesPhase, setNotesPhase] = useState("idle");
   const [selectedId, setSelectedId] = useState(null);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
@@ -44,26 +45,15 @@ export default function NotesWorkspace() {
   const [noteSummaries, setNoteSummaries] = useState({});
   const [summaryError, setSummaryError] = useState("");
   const [autosaveState, setAutosaveState] = useState("idle");
-  const [notesReloadToken, setNotesReloadToken] = useState(0);
   const editorRef = useRef(null);
   const autosaveTimeoutRef = useRef(null);
   const notesRetryRef = useRef(false);
   const saveInFlightRef = useRef("");
   const lastLocalSaveAtRef = useRef(0);
   const lastPersistedRef = useRef({});
-  const selectedNote =
-    notes.find((note) => note.id === selectedId) ||
-    notes[0] || {
-      title: "",
-      content: "",
-      video_url: null,
-      video_type: null,
-      video_summary: null,
-      category: "idea",
-      tags: [],
-      pinned: false,
-      editor_mode: "rich"
-    };
+  const selectedNote = notes.find((note) => note.id === selectedId) || notes[0] || null;
+  const hasSelectedNote = Boolean(selectedNote?.id);
+  const notesLoaded = notesPhase === "loaded";
   const canDelete = ["owner", "admin"].includes(
     String(workspaceState.membership?.role || "").toLowerCase()
   );
@@ -74,33 +64,38 @@ export default function NotesWorkspace() {
     return authUser?.email || workspaceState.user?.email || "";
   };
 
+  const fetchNotesOnce = async () => {
+    const email = await getRequestEmail();
+    if (!email) {
+      throw new Error("Sign in to load workspace notes.");
+    }
+    const params = new URLSearchParams();
+    params.set("email", email);
+    const response = await fetch(
+      params.toString() ? `/api/notes?${params.toString()}` : "/api/notes"
+    );
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data?.error || "Failed to load notes");
+    }
+    return (data?.notes || []).map(normalizeNote);
+  };
+
   const loadNotes = async () => {
     if (!workspaceState?.ready) return;
+    setNotesPhase("loading");
     setLoading(true);
     setError("");
     setSuccess("");
     try {
-      const email = await getRequestEmail();
-      if (!email) {
-        throw new Error("Sign in to load workspace notes.");
-      }
-      const params = new URLSearchParams();
-      params.set("email", email);
-      const response = await fetch(
-        params.toString() ? `/api/notes?${params.toString()}` : "/api/notes"
-      );
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.error || "Failed to load notes");
-      }
-      const fetched = data?.notes || [];
-      const normalized = fetched.map(normalizeNote);
+      const normalized = await fetchNotesOnce();
       notesRetryRef.current = false;
       lastPersistedRef.current = normalized.reduce((acc, note) => {
         acc[note.id] = serializeNote(note);
         return acc;
       }, {});
       setNotes(normalized);
+      setNotesPhase("loaded");
       setSelectedId((prev) => {
         if (normalized.some((note) => note.id === prev)) return prev;
         return normalized[0]?.id || null;
@@ -111,10 +106,28 @@ export default function NotesWorkspace() {
       if (workspaceError && !notesRetryRef.current && typeof workspaceState.refresh === "function") {
         notesRetryRef.current = true;
         await workspaceState.refresh();
-        setNotesReloadToken((current) => current + 1);
-        return;
+        try {
+          const normalized = await fetchNotesOnce();
+          notesRetryRef.current = false;
+          lastPersistedRef.current = normalized.reduce((acc, note) => {
+            acc[note.id] = serializeNote(note);
+            return acc;
+          }, {});
+          setNotes(normalized);
+          setNotesPhase("loaded");
+          setSelectedId((prev) => {
+            if (normalized.some((note) => note.id === prev)) return prev;
+            return normalized[0]?.id || null;
+          });
+          return;
+        } catch (retryErr) {
+          setError(normalizeWorkspaceError(retryErr?.message || "Failed to load notes."));
+          setNotesPhase("error");
+          return;
+        }
       }
       setError(message);
+      setNotesPhase("error");
     } finally {
       setLoading(false);
     }
@@ -124,11 +137,11 @@ export default function NotesWorkspace() {
     if (workspaceState.ready) {
       loadNotes();
     }
-  }, [workspaceState.ready, workspaceState.workspace?.id, notesReloadToken]);
+  }, [workspaceState.ready, workspaceState.workspace?.id]);
 
   useEffect(() => {
     const workspaceId = workspaceState.workspace?.id;
-    if (!workspaceId) return undefined;
+    if (!workspaceId || !notesLoaded) return undefined;
 
     const notesChannel = supabase
       .channel(`notes-workspace-${workspaceId}`)
@@ -155,10 +168,10 @@ export default function NotesWorkspace() {
     return () => {
       supabase.removeChannel(notesChannel);
     };
-  }, [workspaceState.workspace?.id]);
+  }, [workspaceState.workspace?.id, notesLoaded]);
 
   useEffect(() => {
-    if (!workspaceState.ready) {
+    if (!workspaceState.ready || !notesLoaded) {
       setAttachments([]);
       return;
     }
@@ -195,7 +208,7 @@ export default function NotesWorkspace() {
     };
 
     fetchAttachments();
-  }, [selectedId, workspaceState.ready]);
+  }, [selectedId, workspaceState.ready, notesLoaded]);
 
   useEffect(() => {
     setSummaryError("");
@@ -207,7 +220,7 @@ export default function NotesWorkspace() {
   }, [selectedId, selectedNote?.video_url]);
 
   useEffect(() => {
-    if (!selectedNote?.id) return undefined;
+    if (!selectedNote?.id || !notesLoaded) return undefined;
     const serialized = serializeNote(selectedNote);
     if (
       lastPersistedRef.current[selectedNote.id] === serialized ||
@@ -229,6 +242,7 @@ export default function NotesWorkspace() {
       clearTimeout(autosaveTimeoutRef.current);
     };
   }, [
+    notesLoaded,
     selectedId,
     selectedNote?.title,
     selectedNote?.content,
@@ -330,12 +344,13 @@ export default function NotesWorkspace() {
         if (!response.ok) {
           throw new Error(data?.error || "Could not create note");
         }
-        const newNote = normalizeNote(data?.note);
-        if (!newNote) return;
-        lastPersistedRef.current[newNote.id] = serializeNote(newNote);
-        setNotes((prev) => [newNote, ...prev]);
-        setSelectedId(newNote.id);
-        setError("");
+      const newNote = normalizeNote(data?.note);
+      if (!newNote) return;
+      lastPersistedRef.current[newNote.id] = serializeNote(newNote);
+      setNotesPhase("loaded");
+      setNotes((prev) => [newNote, ...prev]);
+      setSelectedId(newNote.id);
+      setError("");
       } catch (err) {
         setError(err?.message || "Could not create note.");
       }
@@ -407,7 +422,7 @@ export default function NotesWorkspace() {
       setCreatingTask(true);
       setError("");
       setSuccess("");
-      const email = (await supabase.auth.getUser()).data.user?.email || "";
+      const email = await getRequestEmail();
       const response = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -438,7 +453,7 @@ export default function NotesWorkspace() {
       setConvertingFromNote(true);
       setError("");
       setSuccess("");
-      const email = (await supabase.auth.getUser()).data.user?.email || "";
+      const email = await getRequestEmail();
       const response = await fetch("/api/notes/to-tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -523,7 +538,7 @@ export default function NotesWorkspace() {
 
   const applyFormat = (action) => {
     const textarea = editorRef.current;
-    if (!textarea) return;
+    if (!textarea || !selectedNote) return;
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
@@ -816,10 +831,22 @@ export default function NotesWorkspace() {
           </button>
         </div>
         <div className="space-y-2">
-          {loading ? <p className="text-xs text-slate-400">Loading notes...</p> : null}
+          {notesPhase === "loading" ? <p className="text-xs text-slate-400">Loading notes...</p> : null}
           {error ? <p className="text-xs text-rose-300">{error}</p> : null}
           {success ? <p className="text-xs text-emerald-300">{success}</p> : null}
-          {!loading && !error && filteredNotes.length === 0 ? (
+          {notesPhase === "loaded" && notes.length === 0 ? (
+            <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-4 text-sm text-slate-400">
+              <p>No notes in this workspace yet.</p>
+              <button
+                type="button"
+                onClick={createNote}
+                className="mt-3 rounded-lg bg-indigo-500 px-3 py-2 text-xs font-semibold text-white"
+              >
+                Create your first note
+              </button>
+            </div>
+          ) : null}
+          {notesPhase === "loaded" && notes.length > 0 && !error && filteredNotes.length === 0 ? (
             <p className="text-xs text-slate-400">No notes found for the current filters.</p>
           ) : null}
           {filteredNotes.map((note) => {
@@ -866,6 +893,18 @@ export default function NotesWorkspace() {
           workspaceName={workspaceState.workspace?.name}
           role={workspaceState.membership?.role}
         />
+        {notesPhase === "loading" && !hasSelectedNote ? (
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-8 text-sm text-slate-400">
+            Loading notes...
+          </div>
+        ) : null}
+        {notesPhase === "loaded" && !hasSelectedNote ? (
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-8 text-sm text-slate-400">
+            Select a note from the list or create a new one to start writing.
+          </div>
+        ) : null}
+        {hasSelectedNote ? (
+          <>
         {success ? (
           <div className="mb-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
             {success}
@@ -1176,6 +1215,8 @@ export default function NotesWorkspace() {
                   ? "Autosave failed. Retry by clicking outside the editor."
                   : "Changes save automatically."}
         </p>
+          </>
+        ) : null}
       </section>
     </div>
   );
