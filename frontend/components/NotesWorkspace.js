@@ -117,15 +117,15 @@ export default function NotesWorkspace() {
         return normalized[0]?.id || null;
       });
     } catch (err) {
-      const message = err?.message || "Unable to load notes.";
-      const workspaceError = /workspace not found/i.test(message);
+      const message = normalizeWorkspaceError(err?.message || "Unable to load notes.");
+      const workspaceError = /session expired or workspace missing/i.test(message);
       if (workspaceError && !notesRetryRef.current && typeof workspaceState.refresh === "function") {
         notesRetryRef.current = true;
         await workspaceState.refresh();
         await loadNotes();
         return;
       }
-      setError(workspaceError ? "Session expired or workspace missing. Refresh or sign in again." : message);
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -196,7 +196,7 @@ export default function NotesWorkspace() {
         setAttachments(data?.attachments || []);
       } catch (err) {
         setAttachments([]);
-        setError(err?.message || "Unable to load attachments.");
+        setError(normalizeWorkspaceError(err?.message || "Unable to load attachments."));
       } finally {
         setLoadingAttachments(false);
       }
@@ -225,7 +225,7 @@ export default function NotesWorkspace() {
         setTimestampNotes(data?.timestamps || []);
       } catch (err) {
         setTimestampNotes([]);
-        setError(err?.message || "Unable to load timestamp notes.");
+        setError(normalizeWorkspaceError(err?.message || "Unable to load timestamp notes."));
       } finally {
         setLoadingTimestamps(false);
       }
@@ -1751,6 +1751,14 @@ function formatTimestamp(seconds) {
     .toString()
     .padStart(2, "0");
   return `${mins}:${secs}`;
+}
+
+function normalizeWorkspaceError(message) {
+  const text = String(message || "").trim();
+  if (/workspace not found/i.test(text)) {
+    return "Session expired or workspace missing. Refresh or sign in again.";
+  }
+  return text || "Something went wrong.";
 }
 
 function extractYouTubeId(url) {
