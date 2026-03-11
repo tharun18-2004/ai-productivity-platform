@@ -61,6 +61,9 @@ export default function NotesWorkspace() {
   const audioChunksRef = useRef([]);
   const autosaveTimeoutRef = useRef(null);
   const notesRetryRef = useRef(false);
+  const saveInFlightRef = useRef("");
+  const lastEditorHtmlRef = useRef("");
+  const lastLocalSaveAtRef = useRef(0);
   const lastPersistedRef = useRef({});
   const selectedNote =
     notes.find((note) => note.id === selectedId) ||
@@ -156,6 +159,12 @@ export default function NotesWorkspace() {
           filter: `workspace_id=eq.${workspaceId}`
         },
         () => {
+          if (
+            saveInFlightRef.current ||
+            Date.now() - lastLocalSaveAtRef.current < 1500
+          ) {
+            return;
+          }
           loadNotes();
         }
       )
@@ -258,15 +267,19 @@ export default function NotesWorkspace() {
   useEffect(() => {
     if (selectedNote?.editor_mode !== "rich" || !richEditorRef.current) return;
     const nextHtml = getRichEditorContent(selectedNote?.content || "");
-    if (richEditorRef.current.innerHTML !== nextHtml) {
+    if (lastEditorHtmlRef.current !== nextHtml) {
       richEditorRef.current.innerHTML = nextHtml;
+      lastEditorHtmlRef.current = nextHtml;
     }
   }, [selectedId, selectedNote?.content, selectedNote?.editor_mode]);
 
   useEffect(() => {
     if (!selectedNote?.id) return undefined;
     const serialized = serializeNote(selectedNote);
-    if (lastPersistedRef.current[selectedNote.id] === serialized) {
+    if (
+      lastPersistedRef.current[selectedNote.id] === serialized ||
+      saveInFlightRef.current === `${selectedNote.id}:${serialized}`
+    ) {
       if (autosaveState !== "saving") {
         setAutosaveState("idle");
       }
@@ -348,7 +361,17 @@ export default function NotesWorkspace() {
       noteOverride ||
       (selectedId ? notes.find((n) => n.id === selectedId) : null);
     if (!current?.id) return;
+    const serialized = serializeNote(current);
+    const saveKey = `${current.id}:${serialized}`;
+    if (
+      lastPersistedRef.current[current.id] === serialized ||
+      saveInFlightRef.current === saveKey
+    ) {
+      return;
+    }
     try {
+      saveInFlightRef.current = saveKey;
+      lastLocalSaveAtRef.current = Date.now();
       setAutosaveState("saving");
       const response = await fetch(`/api/notes/${current.id}`, {
         method: "PUT",
@@ -371,6 +394,7 @@ export default function NotesWorkspace() {
       }
       const savedNote = normalizeNote(data.note) || current;
       lastPersistedRef.current[current.id] = serializeNote(savedNote);
+      lastLocalSaveAtRef.current = Date.now();
       setNotes((prev) =>
         prev.map((note) =>
           note.id === current.id ? savedNote : note
@@ -381,6 +405,10 @@ export default function NotesWorkspace() {
       setAutosaveState("error");
       if (!options.silentError) {
         setError(err?.message || "Save failed. Please retry.");
+      }
+    } finally {
+      if (saveInFlightRef.current === saveKey) {
+        saveInFlightRef.current = "";
       }
     }
   };
@@ -462,26 +490,20 @@ export default function NotesWorkspace() {
   };
 
   const togglePin = () => {
-    const nextNote = { ...selectedNote, pinned: !selectedNote?.pinned };
-    updateSelected("pinned", nextNote.pinned);
-    persistSelected(nextNote);
+    updateSelected("pinned", !selectedNote?.pinned);
   };
 
   const addTag = () => {
     const clean = tagInput.replace(/^#/, "").trim().toLowerCase();
     if (!clean) return;
     const next = Array.from(new Set([...(selectedNote.tags || []), clean]));
-    const nextNote = { ...selectedNote, tags: next };
     updateSelected("tags", next);
     setTagInput("");
-    persistSelected(nextNote);
   };
 
   const removeTag = (tag) => {
     const nextTags = (selectedNote.tags || []).filter((item) => item !== tag);
-    const nextNote = { ...selectedNote, tags: nextTags };
     updateSelected("tags", nextTags);
-    persistSelected(nextNote);
   };
 
   const convertToTask = async () => {
@@ -609,9 +631,7 @@ export default function NotesWorkspace() {
   };
 
   const setEditorMode = (mode) => {
-    const nextNote = { ...selectedNote, editor_mode: mode };
     updateSelected("editor_mode", mode);
-    persistSelected(nextNote);
   };
 
   const insertRichHtml = (html) => {
@@ -682,13 +702,11 @@ export default function NotesWorkspace() {
       nextCursorEnd = start + selectedText.length + 6;
     }
 
-    const nextNote = { ...selectedNote, content: nextText };
     updateSelected("content", nextText);
     setTimeout(() => {
       textarea.focus();
       textarea.setSelectionRange(nextCursorStart, nextCursorEnd);
     }, 0);
-    persistSelected(nextNote);
   };
 
   const applyRichFormat = (action) => {
@@ -716,13 +734,12 @@ export default function NotesWorkspace() {
     }
 
     const nextContent = editor.innerHTML;
-    const nextNote = { ...selectedNote, content: nextContent };
     updateSelected("content", nextContent);
-    persistSelected(nextNote);
   };
 
   const handleRichInput = (event) => {
     const nextContent = event.currentTarget.innerHTML;
+    lastEditorHtmlRef.current = nextContent;
     updateSelected("content", nextContent);
   };
 
@@ -785,12 +802,6 @@ export default function NotesWorkspace() {
     }
 
     const embedUrl = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
-    const nextNote = {
-      ...selectedNote,
-      video_url: embedUrl,
-      video_type: "youtube",
-      video_summary: null
-    };
     setNotes((prev) =>
       prev.map((note) =>
         note.id === selectedId
@@ -801,7 +812,6 @@ export default function NotesWorkspace() {
     setVideoInput(embedUrl);
     setError("");
     setSuccess("YouTube video attached.");
-    persistSelected(nextNote);
     generateVideoSummary(embedUrl);
   };
 
@@ -847,12 +857,6 @@ export default function NotesWorkspace() {
         throw new Error("Could not get public URL for uploaded video.");
       }
 
-      const nextNote = {
-        ...selectedNote,
-        video_url: publicUrl,
-        video_type: "upload",
-        video_summary: null
-      };
       setNotes((prev) =>
         prev.map((note) =>
           note.id === selectedId
@@ -861,7 +865,6 @@ export default function NotesWorkspace() {
         )
       );
       setVideoInput("");
-      await persistSelected(nextNote);
       setSuccess("Video uploaded and attached to note.");
     } catch (err) {
       setError(
@@ -876,14 +879,12 @@ export default function NotesWorkspace() {
 
   const clearVideo = () => {
     if (!selectedNote?.id) return;
-    const nextNote = { ...selectedNote, video_url: null, video_type: null };
     setNotes((prev) =>
       prev.map((note) => (note.id === selectedId ? { ...note, video_url: null, video_type: null } : note))
     );
     setVideoInput("");
     setSuccess("Video removed from note.");
     setError("");
-    persistSelected(nextNote);
   };
 
   const generateVideoSummary = async (videoUrl) => {
@@ -1033,7 +1034,7 @@ export default function NotesWorkspace() {
         const separator = selectedNote?.content?.trim() ? "\n\n" : "";
         const nextContent = `${selectedNote?.content || ""}${separator}${transcript}`;
         updateSelected("content", nextContent);
-        persistSelected({ ...selectedNote, content: nextContent });
+        lastEditorHtmlRef.current = nextContent;
         setSuccess("Voice note transcribed and inserted.");
       }
     } catch (err) {
@@ -1214,7 +1215,6 @@ export default function NotesWorkspace() {
           <select
             value={selectedNote?.category || "idea"}
             onChange={(e) => updateSelected("category", e.target.value)}
-            onBlur={persistSelected}
             className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none"
           >
             {categoryOptions.map((category) => (
@@ -1283,7 +1283,6 @@ export default function NotesWorkspace() {
         <input
           value={selectedNote?.title || ""}
           onChange={(e) => updateSelected("title", e.target.value)}
-          onBlur={persistSelected}
           placeholder="Note title"
           className="mb-3 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-lg font-semibold text-white outline-none"
         />
@@ -1470,7 +1469,6 @@ export default function NotesWorkspace() {
             ref={editorRef}
             value={selectedNote?.editor_mode === "markdown" ? selectedNote?.content || "" : ""}
             onChange={(e) => updateSelected("content", e.target.value)}
-            onBlur={persistSelected}
             placeholder="Write your note in markdown..."
             rows={16}
             className={`w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-slate-200 outline-none ${
@@ -1482,13 +1480,6 @@ export default function NotesWorkspace() {
             contentEditable={selectedNote?.editor_mode === "rich"}
             suppressContentEditableWarning
             onInput={handleRichInput}
-            onBlur={persistSelected}
-            dangerouslySetInnerHTML={{
-              __html:
-                selectedNote?.editor_mode === "rich"
-                  ? getRichEditorContent(selectedNote?.content || "")
-                  : ""
-            }}
             className={`min-h-[24rem] rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-slate-200 outline-none [&_h1]:mb-2 [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-semibold [&_ul]:ml-5 [&_ul]:list-disc [&_p]:mb-2 ${
               selectedNote?.editor_mode === "rich" ? "block" : "hidden"
             }`}
