@@ -34,6 +34,7 @@ export default function NotesWorkspace() {
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [videoInput, setVideoInput] = useState("");
+  const [editingVideo, setEditingVideo] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [summarizing, setSummarizing] = useState(false);
@@ -201,12 +202,9 @@ export default function NotesWorkspace() {
   }, [selectedId]);
 
   useEffect(() => {
-    if (selectedNote?.video_type === "youtube") {
-      setVideoInput(selectedNote.video_url || "");
-    } else {
-      setVideoInput("");
-    }
-  }, [selectedId, selectedNote?.video_url, selectedNote?.video_type]);
+    setVideoInput("");
+    setEditingVideo(!selectedNote?.video_url);
+  }, [selectedId, selectedNote?.video_url]);
 
   useEffect(() => {
     if (!selectedNote?.id) return undefined;
@@ -630,7 +628,8 @@ export default function NotesWorkspace() {
           : note
       )
     );
-    setVideoInput(embedUrl);
+    setVideoInput("");
+    setEditingVideo(false);
     setError("");
     setSuccess("YouTube video attached.");
   };
@@ -685,6 +684,7 @@ export default function NotesWorkspace() {
         )
       );
       setVideoInput("");
+      setEditingVideo(false);
       setSuccess("Video uploaded and attached to note.");
     } catch (err) {
       setError(
@@ -703,6 +703,7 @@ export default function NotesWorkspace() {
       prev.map((note) => (note.id === selectedId ? { ...note, video_url: null, video_type: null } : note))
     );
     setVideoInput("");
+    setEditingVideo(true);
     setSuccess("Video removed from note.");
     setError("");
   };
@@ -989,48 +990,70 @@ export default function NotesWorkspace() {
               <p className="text-xs text-slate-500">Attach a YouTube link or upload an mp4/webm (≤50MB).</p>
             </div>
             {selectedNote?.video_url ? (
-              <button
-                type="button"
-                onClick={clearVideo}
-                className="text-xs text-rose-300 underline-offset-2 hover:underline"
-              >
-                Remove video
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingVideo((current) => !current)}
+                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+                >
+                  {editingVideo ? "Cancel" : "Change Video"}
+                </button>
+                <button
+                  type="button"
+                  onClick={clearVideo}
+                  className="rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20"
+                >
+                  Remove Video
+                </button>
+              </div>
             ) : null}
           </div>
-          <div className="grid gap-2 md:grid-cols-[1fr_auto]">
-            <input
-              value={videoInput}
-              onChange={(e) => setVideoInput(e.target.value)}
-              placeholder="Paste YouTube link (watch or share URL)"
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 outline-none"
-            />
-            <button
-              type="button"
-              onClick={handleYouTubeAttach}
-              disabled={!videoInput.trim() || !selectedNote?.id}
-              className="rounded-xl bg-red-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-60"
-            >
-              Attach YouTube
-            </button>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <label className="cursor-pointer rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-200">
-              {uploadingVideo ? "Uploading video..." : "Upload video"}
-              <input
-                type="file"
-                accept="video/mp4,video/webm"
-                className="hidden"
-                onChange={handleVideoUpload}
-                disabled={uploadingVideo || !selectedNote?.id}
-              />
-            </label>
-            <p className="text-[11px] text-slate-500">Allowed: mp4, webm · Max 50MB · Auth required</p>
-          </div>
+          {!selectedNote?.video_url || editingVideo ? (
+            <>
+              <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+                <input
+                  value={videoInput}
+                  onChange={(e) => setVideoInput(e.target.value)}
+                  placeholder="Paste YouTube link (watch or share URL)"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleYouTubeAttach}
+                  disabled={!videoInput.trim() || !selectedNote?.id}
+                  className="rounded-xl bg-red-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-60"
+                >
+                  Attach YouTube
+                </button>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <label className="cursor-pointer rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-200">
+                  {uploadingVideo ? "Uploading video..." : "Upload video"}
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm"
+                    className="hidden"
+                    onChange={handleVideoUpload}
+                    disabled={uploadingVideo || !selectedNote?.id}
+                  />
+                </label>
+                <p className="text-[11px] text-slate-500">Allowed: mp4, webm · Max 50MB · Auth required</p>
+              </div>
+            </>
+          ) : null}
           {selectedNote?.video_url ? (
-            <div className="mt-3 space-y-3 overflow-hidden rounded-xl border border-slate-800 bg-slate-900 p-2">
-              {renderVideoPlayer(selectedNote)}
-              <div className="space-y-1 rounded-lg border border-slate-800 bg-slate-950 p-2">
+            <div className="mt-3 overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-900 to-slate-950 shadow-[0_0_0_1px_rgba(148,163,184,0.05)]">
+              <div className="border-b border-slate-800 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  Attached Video
+                </p>
+              </div>
+              <div className="p-3">
+                <div className="overflow-hidden rounded-xl border border-slate-800 bg-black">
+                  {renderVideoPlayer(selectedNote)}
+                </div>
+              </div>
+              <div className="border-t border-slate-800 px-4 py-3">
                 <p className="text-xs text-slate-500">
                   Advanced timestamp notes and AI video summary are disabled for stability.
                 </p>
@@ -1320,7 +1343,7 @@ function renderVideoPlayer(note) {
       <iframe
         title="YouTube video"
         src={note.video_url}
-        className="h-[320px] w-full md:h-[400px]"
+        className="aspect-video w-full"
         allowFullScreen
       />
     );
@@ -1328,7 +1351,7 @@ function renderVideoPlayer(note) {
 
   if (note.video_type === "upload") {
     return (
-      <video controls className="h-[320px] w-full md:h-[400px] bg-black" preload="metadata">
+      <video controls className="aspect-video w-full bg-black" preload="metadata">
         <source src={note.video_url} type="video/mp4" />
         <source src={note.video_url} type="video/webm" />
         Your browser does not support the video tag.
