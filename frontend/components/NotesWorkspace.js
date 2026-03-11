@@ -1196,13 +1196,13 @@ export default function NotesWorkspace() {
                     onClick={() => setVideoPlayerMode("player")}
                     className="group relative block w-full overflow-hidden rounded-[24px] border border-slate-700/80 bg-slate-950 text-left ring-1 ring-white/5 transition hover:border-slate-500"
                   >
-                    <div className="relative w-full bg-slate-950 pt-[56.25%]">
+                    <div className="relative w-full overflow-hidden bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.22),rgba(15,23,42,0.18)_34%,rgba(2,6,23,0.96)_72%),linear-gradient(180deg,rgba(10,18,33,0.95),rgba(2,6,23,1))] pt-[56.25%]">
                       {getYouTubeThumbnailUrl(selectedNote) ? (
                         <img
                           src={getYouTubeThumbnailUrl(selectedNote)}
                           alt=""
                           aria-hidden="true"
-                          className="absolute inset-0 h-full w-full object-cover"
+                          className="absolute inset-0 h-full w-full object-cover opacity-70 transition duration-300 group-hover:scale-[1.02]"
                           loading="lazy"
                           onError={(event) => {
                             const fallback = getYouTubeFallbackThumbnailUrl(selectedNote);
@@ -1214,19 +1214,20 @@ export default function NotesWorkspace() {
                           }}
                         />
                       ) : null}
-                      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.08),rgba(2,6,23,0.72))]" />
-                      <div className="absolute left-4 top-4 rounded-full border border-white/10 bg-black/45 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/85">
+                      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.08),rgba(2,6,23,0.78))]" />
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.04),transparent_48%)]" />
+                      <div className="absolute left-4 top-4 rounded-full border border-red-400/30 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-red-100">
                         YouTube
                       </div>
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="flex h-20 w-20 items-center justify-center rounded-full border border-white/15 bg-black/65 text-white shadow-[0_18px_36px_rgba(0,0,0,0.35)] transition group-hover:scale-105">
-                          <span className="ml-1 text-2xl">Play</span>
+                        <div className="flex h-24 w-24 items-center justify-center rounded-full border border-white/15 bg-black/60 text-white shadow-[0_18px_36px_rgba(0,0,0,0.35)] transition group-hover:scale-105 group-hover:bg-black/68">
+                          <span className="ml-1 text-xl font-semibold tracking-wide">Play</span>
                         </div>
                       </div>
-                      <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,rgba(2,6,23,0),rgba(2,6,23,0.88))] px-5 py-4">
-                        <p className="text-sm font-semibold text-white">Load video preview</p>
-                        <p className="mt-1 text-xs text-slate-300">
-                          Click to play the YouTube video inside this note.
+                      <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,rgba(2,6,23,0),rgba(2,6,23,0.94))] px-5 py-5">
+                        <p className="text-base font-semibold text-white">Play video</p>
+                        <p className="mt-1 text-sm text-slate-300">
+                          Watch this tutorial inside your note without leaving the workspace.
                         </p>
                       </div>
                     </div>
