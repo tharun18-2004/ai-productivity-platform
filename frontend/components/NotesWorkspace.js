@@ -1044,12 +1044,19 @@ export default function NotesWorkspace() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-[28px] border border-slate-800 bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(6,11,19,0.98))] shadow-[0_20px_55px_rgba(0,0,0,0.35)]">
-          <div className="border-b border-slate-800 px-5 py-4">
-            <div className="mb-3 flex items-center justify-between gap-2">
-            <div>
+        <div className="overflow-hidden rounded-[30px] border border-slate-800/90 bg-[linear-gradient(180deg,rgba(19,27,41,0.98),rgba(6,10,18,0.98))] shadow-[0_28px_80px_rgba(0,0,0,0.42)]">
+          <div className="border-b border-slate-800/90 px-5 py-5 sm:px-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-300/80">Video Learning</p>
-              <h4 className="mt-1 text-lg font-semibold text-white">Attached Video</h4>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <h4 className="text-xl font-semibold text-white">Attached Video</h4>
+                {selectedNote?.video_url ? (
+                  <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-200">
+                    Ready to watch
+                  </span>
+                ) : null}
+              </div>
               <p className="text-xs text-slate-500">Attach a YouTube link or upload an mp4/webm (≤50MB).</p>
             </div>
             {selectedNote?.video_url ? (
@@ -1057,14 +1064,14 @@ export default function NotesWorkspace() {
                 <button
                   type="button"
                   onClick={() => setEditingVideo((current) => !current)}
-                  className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+                  className="rounded-2xl border border-slate-700 bg-slate-900/90 px-3.5 py-2.5 text-xs font-semibold text-slate-100 transition hover:border-slate-500 hover:bg-slate-900"
                 >
                   {editingVideo ? "Cancel" : "Change Video"}
                 </button>
                 <button
                   type="button"
                   onClick={clearVideo}
-                  className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20"
+                  className="rounded-2xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20"
                 >
                   Remove Video
                 </button>
@@ -1072,25 +1079,25 @@ export default function NotesWorkspace() {
             ) : null}
           </div>
           {!selectedNote?.video_url || editingVideo ? (
-            <>
-              <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+            <div className="mt-5 rounded-[24px] border border-slate-800 bg-slate-950/70 p-4 sm:p-5">
+              <div className="grid gap-3 md:grid-cols-[1fr_auto]">
                 <input
                   value={videoInput}
                   onChange={(e) => setVideoInput(e.target.value)}
-                  placeholder="Paste YouTube link (watch or share URL)"
-                  className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-200 outline-none"
+                  placeholder="Paste YouTube link (watch, share, or shorts URL)"
+                  className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3.5 text-sm text-slate-200 outline-none"
                 />
                 <button
                   type="button"
                   onClick={handleYouTubeAttach}
                   disabled={!videoInput.trim() || !selectedNote?.id}
-                  className="rounded-2xl bg-red-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-60"
+                  className="rounded-2xl bg-red-500 px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-60"
                 >
                   Attach YouTube
                 </button>
               </div>
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <label className="cursor-pointer rounded-2xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs font-semibold text-slate-200">
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <label className="cursor-pointer rounded-2xl border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-xs font-semibold text-slate-200">
                   {uploadingVideo ? "Uploading video..." : "Upload video"}
                   <input
                     type="file"
@@ -1102,24 +1109,33 @@ export default function NotesWorkspace() {
                 </label>
                 <p className="text-[11px] text-slate-500">Allowed: mp4, webm · Max 50MB · Auth required</p>
               </div>
-            </>
+            </div>
           ) : null}
           </div>
-          <div className="p-4">
+          <div className="px-4 py-4 sm:px-6 sm:py-6">
             {selectedNote?.video_url ? (
-              <div className="overflow-hidden rounded-[24px] border border-slate-800 bg-black shadow-[0_18px_40px_rgba(0,0,0,0.35)]">
-                {renderVideoPlayer(selectedNote)}
+              <div className="rounded-[28px] border border-slate-700/80 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.16),rgba(3,7,18,0)_42%),linear-gradient(180deg,rgba(2,6,23,0.9),rgba(2,6,23,1))] p-3 shadow-[0_24px_60px_rgba(0,0,0,0.45)] sm:p-4">
+                <div className="mb-3 px-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Now Playing</p>
+                  <p className="mt-1 text-sm font-medium text-slate-200">Learn while you write without leaving the workspace</p>
+                </div>
+                <div className="overflow-hidden rounded-[24px] border border-slate-700/80 bg-black ring-1 ring-white/5">
+                  {renderVideoPlayer(selectedNote)}
+                </div>
               </div>
             ) : (
-              <div className="rounded-[24px] border border-dashed border-slate-700 bg-[#0a1018] px-5 py-8 text-center">
-                <p className="text-sm font-semibold text-slate-200">No video attached yet</p>
-                <p className="mt-2 text-xs leading-6 text-slate-500">
-                  Add a tutorial, meeting recording, or product demo so the note and media stay in one workspace.
+              <div className="rounded-[28px] border border-dashed border-slate-700 bg-[linear-gradient(180deg,rgba(10,16,24,0.92),rgba(5,10,16,0.98))] px-6 py-12 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900/90 text-xl text-slate-300">
+                  ▶
+                </div>
+                <p className="mt-4 text-base font-semibold text-slate-100">No video attached yet</p>
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
+                  Attach a tutorial, meeting recording, or product demo so your notes and media stay in one focused workspace.
                 </p>
               </div>
             )}
           </div>
-          <div className="border-t border-slate-800 px-5 py-3">
+          <div className="border-t border-slate-800/90 px-5 py-3 sm:px-6">
             <p className="text-xs text-slate-500">
               Advanced timestamp notes and AI video summary are disabled for stability.
             </p>
@@ -1187,11 +1203,6 @@ export default function NotesWorkspace() {
               __html: renderNotePreview(selectedNote?.content || "")
             }}
           />
-          {selectedNote?.video_url && selectedNote?.video_type ? (
-            <div className="mt-4 overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
-              {renderVideoPlayer(selectedNote)}
-            </div>
-          ) : null}
         </div>
 
         <div className="mb-3 rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
@@ -1445,7 +1456,8 @@ function renderVideoPlayer(note) {
       <iframe
         title="YouTube video"
         src={note.video_url}
-        className="aspect-video w-full"
+        className="block aspect-video w-full"
+        loading="lazy"
         allowFullScreen
       />
     );
@@ -1453,7 +1465,7 @@ function renderVideoPlayer(note) {
 
   if (note.video_type === "upload") {
     return (
-      <video controls className="aspect-video w-full bg-black" preload="metadata">
+      <video controls className="block aspect-video w-full bg-black" preload="metadata">
         <source src={note.video_url} type="video/mp4" />
         <source src={note.video_url} type="video/webm" />
         Your browser does not support the video tag.
