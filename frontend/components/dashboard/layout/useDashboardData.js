@@ -50,7 +50,7 @@ export function useDashboardData(enabled = true) {
         if (!mounted) return;
 
         const dashboardData = dashboardResp?.data || {};
-        setWorkspaceId(Number(dashboardData?.workspace?.id) || null);
+        setWorkspaceId(dashboardData?.workspace?.id ?? null);
         setOverview({
           ...fallbackOverview,
           user: dashboardData.user || fallbackOverview.user,

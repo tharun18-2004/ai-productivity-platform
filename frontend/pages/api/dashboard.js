@@ -93,10 +93,12 @@ export default async function handler(req, res) {
     const salesQuery = context.supabase
       .from("sales")
       .select("id,product,price,customer,date")
+      .eq("workspace_id", context.workspace.id)
       .order("date", { ascending: false });
     const productsQuery = context.supabase
       .from("products")
       .select("id,name,price,stock", { count: "exact" });
+    const scopedProductsQuery = productsQuery.eq("workspace_id", context.workspace.id);
     const aiConversationsQuery = context.supabase
       .from("ai_conversations")
       .select("id,user_id")
@@ -119,7 +121,7 @@ export default async function handler(req, res) {
       allTasksQuery,
       activityLogsQuery,
       salesQuery,
-      productsQuery,
+      scopedProductsQuery,
       aiConversationsQuery,
       listWorkspaceMembers(context.supabase, context.workspace.id)
     ]);

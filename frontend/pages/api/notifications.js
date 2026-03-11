@@ -16,16 +16,12 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "GET") {
-      const baseQuery = context.supabase
+      const { data, error } = await context.supabase
         .from("notifications")
         .select("id,type,title,body,entity_type,entity_id,is_read,created_at,workspace_id,user_id")
         .eq("workspace_id", context.workspace.id)
         .order("created_at", { ascending: false })
         .limit(20);
-
-      // If user_id is present, filter; otherwise return workspace-wide notifications
-      const query = context.user?.id ? baseQuery.eq("user_id", context.user.id) : baseQuery;
-      const { data, error } = await query;
 
       if (error) return res.status(500).json({ error: error.message });
 
