@@ -693,6 +693,7 @@ export default function NotesWorkspace() {
           : note
       )
     );
+    setVideoPlayerMode("poster");
     setVideoInput("");
     setEditingVideo(false);
     setError("");
@@ -748,6 +749,7 @@ export default function NotesWorkspace() {
             : note
         )
       );
+      setVideoPlayerMode("player");
       setVideoInput("");
       setEditingVideo(false);
       setSuccess("Video uploaded and attached to note.");
@@ -767,6 +769,7 @@ export default function NotesWorkspace() {
     setNotes((prev) =>
       prev.map((note) => (note.id === selectedId ? { ...note, video_url: null, video_type: null } : note))
     );
+    setVideoPlayerMode("idle");
     setVideoInput("");
     setEditingVideo(true);
     setSuccess("Video removed from note.");
