@@ -13,6 +13,7 @@
 
 export const fallbackOverview = {
   user: { name: "User", email: "user@example.com" },
+  commerce_available: false,
   total_notes: 0,
   completed_tasks: 0,
   pending_tasks: 0,

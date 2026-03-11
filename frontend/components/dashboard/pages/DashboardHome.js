@@ -19,6 +19,7 @@ export function DashboardHome({
     completed_tasks: 0,
     recent_activity_count: 0
   };
+  const commerceUnavailable = overview.commerce_available === false;
 
   const insights = (() => {
     const completed = metrics.completedTasks || 0;
@@ -69,7 +70,12 @@ export function DashboardHome({
             value={`${metrics.totalProducts.toLocaleString()}`}
           />
         </div>
-        {metrics.totalRevenue === 0 && (overview.transactions || []).length === 0 ? (
+        {commerceUnavailable ? (
+          <div className="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-300">
+            Sales and product metrics are unavailable because the current project schema does not
+            scope commerce tables by workspace.
+          </div>
+        ) : metrics.totalRevenue === 0 && (overview.transactions || []).length === 0 ? (
           <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
             Total revenue is zero because there are no sales records yet. Add rows to the{" "}
             <code className="rounded bg-slate-950/60 px-1 py-0.5 text-xs">sales</code> table, or

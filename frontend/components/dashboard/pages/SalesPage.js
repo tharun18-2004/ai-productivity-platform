@@ -3,6 +3,7 @@ import { TransactionsTable } from "../ui/table";
 import { formatINR } from "../../../lib/currency";
 
 export function SalesPage({ overview }) {
+  const commerceUnavailable = overview.commerce_available === false;
   const metrics = {
     revenue: overview.sales_overview?.total_revenue || 0,
     orders: overview.transactions?.length || 0,
@@ -57,7 +58,12 @@ export function SalesPage({ overview }) {
         />
       </div>
       <SurfaceCard title="Recent Transactions">
-        {rows.length === 0 ? (
+        {commerceUnavailable ? (
+          <div className="rounded-xl border border-[#1a2233] bg-[#0a1018] px-4 py-6 text-sm text-slate-400">
+            Commerce metrics are unavailable for this workspace because the current sales tables are
+            not scoped by workspace.
+          </div>
+        ) : rows.length === 0 ? (
           <div className="rounded-xl border border-[#1a2233] bg-[#0a1018] px-4 py-6 text-sm text-slate-400">
             No sales or orders found yet. Add your own sales data to see revenue, customer names, and order history here.
           </div>

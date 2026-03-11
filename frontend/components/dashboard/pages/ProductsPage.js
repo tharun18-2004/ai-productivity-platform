@@ -3,12 +3,18 @@ import { SurfaceCard } from "../ui/cards";
 import { formatINR } from "../../../lib/currency";
 
 export function ProductsPage({ overview }) {
+  const commerceUnavailable = overview.commerce_available === false;
   const products = overview.top_products || [];
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
       <SurfaceCard title="Top Selling Products">
         <div className="space-y-3">
-          {products.length === 0 ? (
+          {commerceUnavailable ? (
+            <div className="rounded-xl border border-[#1a2233] bg-[#0a1018] p-3 text-sm text-slate-400">
+              Commerce metrics are unavailable for this workspace because product data is not
+              workspace-scoped.
+            </div>
+          ) : products.length === 0 ? (
             <div className="rounded-xl border border-[#1a2233] bg-[#0a1018] p-3 text-sm text-slate-400">
               No product sales found yet.
             </div>

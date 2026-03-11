@@ -53,6 +53,7 @@ export function useDashboardData(enabled = true) {
         setWorkspaceId(dashboardData?.workspace?.id ?? null);
         setOverview({
           ...fallbackOverview,
+          commerce_available: Boolean(dashboardData.commerce_available),
           user: dashboardData.user || fallbackOverview.user,
           total_notes: Number(dashboardData.total_notes || 0),
           completed_tasks: Number(dashboardData.completed_tasks || 0),
@@ -97,7 +98,7 @@ export function useDashboardData(enabled = true) {
         setDashboardError(
           err?.message || "Failed to load dashboard metrics from Supabase."
         );
-        setOverview({ ...fallbackOverview });
+        setOverview({ ...fallbackOverview, commerce_available: false });
         setDashboardStats({
           total_notes: 0,
           completed_tasks: 0,
