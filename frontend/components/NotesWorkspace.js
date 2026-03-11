@@ -538,13 +538,11 @@ export default function NotesWorkspace() {
     const text = String(selectedNote?.content || "").trim();
     if (!text) {
       setSummaryError("Add note content before generating a summary.");
-      setError("Add note content before generating a summary.");
       return;
     }
 
     try {
       setSummarizing(true);
-      setError("");
       setSuccess("");
       setSummaryError("");
       const response = await fetch("/api/ai", {
@@ -580,7 +578,6 @@ export default function NotesWorkspace() {
     } catch (err) {
       const message = err?.message || "Could not summarize note.";
       setSummaryError(message);
-      setError(message);
     } finally {
       setSummarizing(false);
     }
