@@ -34,14 +34,6 @@ export default function NotesWorkspace() {
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [videoInput, setVideoInput] = useState("");
-  const [timestampNotes, setTimestampNotes] = useState([]);
-  const [loadingTimestamps, setLoadingTimestamps] = useState(false);
-  const [addingTimestamp, setAddingTimestamp] = useState(false);
-  const [timestampText, setTimestampText] = useState("");
-  const [videoSummaryLoading, setVideoSummaryLoading] = useState(false);
-  const [voiceRecording, setVoiceRecording] = useState(false);
-  const [voiceUploading, setVoiceUploading] = useState(false);
-  const [youtubeReady, setYoutubeReady] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [summarizing, setSummarizing] = useState(false);
@@ -53,16 +45,9 @@ export default function NotesWorkspace() {
   const [autosaveState, setAutosaveState] = useState("idle");
   const [notesReloadToken, setNotesReloadToken] = useState(0);
   const editorRef = useRef(null);
-  const richEditorRef = useRef(null);
-  const htmlVideoRef = useRef(null);
-  const youtubePlayerRef = useRef(null);
-  const youtubeContainerRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
   const autosaveTimeoutRef = useRef(null);
   const notesRetryRef = useRef(false);
   const saveInFlightRef = useRef("");
-  const lastEditorHtmlRef = useRef("");
   const lastLocalSaveAtRef = useRef(0);
   const lastPersistedRef = useRef({});
   const selectedNote =
@@ -78,10 +63,6 @@ export default function NotesWorkspace() {
       pinned: false,
       editor_mode: "rich"
     };
-  const youtubeElementId = useMemo(
-    () => (selectedId ? `youtube-player-${selectedId}` : "youtube-player"),
-    [selectedId]
-  );
   const canDelete = ["owner", "admin"].includes(
     String(workspaceState.membership?.role || "").toLowerCase()
   );
@@ -220,58 +201,12 @@ export default function NotesWorkspace() {
   }, [selectedId]);
 
   useEffect(() => {
-    if (!workspaceState.ready) {
-      setTimestampNotes([]);
-      return;
-    }
-    if (!selectedNote?.id) {
-      setTimestampNotes([]);
-      return;
-    }
-    const fetchTimestamps = async () => {
-      setLoadingTimestamps(true);
-      try {
-        const params = new URLSearchParams();
-        const email = await getRequestEmail();
-        if (email) {
-          params.set("email", email);
-        }
-        const response = await fetch(
-          params.toString()
-            ? `/api/notes/${selectedNote.id}/timestamps?${params.toString()}`
-            : `/api/notes/${selectedNote.id}/timestamps`
-        );
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data?.error || "Failed to load timestamps");
-        }
-        setTimestampNotes(data?.timestamps || []);
-      } catch (err) {
-        setTimestampNotes([]);
-        setError(normalizeWorkspaceError(err?.message || "Unable to load timestamp notes."));
-      } finally {
-        setLoadingTimestamps(false);
-      }
-    };
-    fetchTimestamps();
-  }, [selectedNote?.id, workspaceState.ready]);
-
-  useEffect(() => {
     if (selectedNote?.video_type === "youtube") {
       setVideoInput(selectedNote.video_url || "");
     } else {
       setVideoInput("");
     }
   }, [selectedId, selectedNote?.video_url, selectedNote?.video_type]);
-
-  useEffect(() => {
-    if (selectedNote?.editor_mode !== "rich" || !richEditorRef.current) return;
-    const nextHtml = getRichEditorContent(selectedNote?.content || "");
-    if (lastEditorHtmlRef.current !== nextHtml) {
-      richEditorRef.current.innerHTML = nextHtml;
-      lastEditorHtmlRef.current = nextHtml;
-    }
-  }, [selectedId, selectedNote?.content, selectedNote?.editor_mode]);
 
   useEffect(() => {
     if (!selectedNote?.id) return undefined;
@@ -313,48 +248,6 @@ export default function NotesWorkspace() {
     },
     []
   );
-
-  useEffect(() => {
-    if (selectedNote?.video_type !== "youtube" || !selectedNote?.video_url) {
-      if (youtubePlayerRef.current?.destroy) {
-        youtubePlayerRef.current.destroy();
-      }
-      youtubePlayerRef.current = null;
-      setYoutubeReady(false);
-      return;
-    }
-
-    setYoutubeReady(false);
-    const videoId = extractYouTubeId(selectedNote.video_url);
-    if (!videoId) return;
-
-    const setupPlayer = () => {
-      if (!window.YT || !window.YT.Player) return;
-      if (youtubePlayerRef.current?.destroy) {
-        youtubePlayerRef.current.destroy();
-      }
-      youtubePlayerRef.current = new window.YT.Player(youtubeElementId, {
-        videoId,
-        events: {
-          onReady: () => setYoutubeReady(true)
-        }
-      });
-    };
-
-    if (window.YT && window.YT.Player) {
-      setupPlayer();
-    } else {
-      const tag = document.createElement("script");
-      tag.src = "https://www.youtube.com/iframe_api";
-      window.onYouTubeIframeAPIReady = setupPlayer;
-      document.body.appendChild(tag);
-    }
-
-    return () => {
-      if (youtubePlayerRef.current?.destroy) youtubePlayerRef.current.destroy();
-      youtubePlayerRef.current = null;
-    };
-  }, [selectedNote?.video_url, selectedNote?.video_type, selectedNote?.id, youtubeElementId]);
 
   const persistSelected = async (noteOverride, options = {}) => {
     const current =
@@ -630,45 +523,7 @@ export default function NotesWorkspace() {
     }
   };
 
-  const setEditorMode = (mode) => {
-    updateSelected("editor_mode", mode);
-  };
-
-  const insertRichHtml = (html) => {
-    if (typeof window === "undefined") return;
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) {
-      document.execCommand("insertHTML", false, html);
-      return;
-    }
-
-    const range = selection.getRangeAt(0);
-    range.deleteContents();
-    const wrapper = document.createElement("div");
-    wrapper.innerHTML = html;
-    const fragment = document.createDocumentFragment();
-    let node = null;
-    let lastNode = null;
-
-    while ((node = wrapper.firstChild)) {
-      lastNode = fragment.appendChild(node);
-    }
-
-    range.insertNode(fragment);
-    if (lastNode) {
-      range.setStartAfter(lastNode);
-      range.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(range);
-    }
-  };
-
   const applyFormat = (action) => {
-    if (selectedNote?.editor_mode === "rich") {
-      applyRichFormat(action);
-      return;
-    }
-
     const textarea = editorRef.current;
     if (!textarea) return;
 
@@ -707,40 +562,6 @@ export default function NotesWorkspace() {
       textarea.focus();
       textarea.setSelectionRange(nextCursorStart, nextCursorEnd);
     }, 0);
-  };
-
-  const applyRichFormat = (action) => {
-    const editor = richEditorRef.current;
-    if (!editor || typeof document === "undefined") return;
-
-    editor.focus();
-
-    if (action === "heading1") {
-      document.execCommand("formatBlock", false, "h1");
-    }
-    if (action === "heading2") {
-      document.execCommand("formatBlock", false, "h2");
-    }
-    if (action === "bold") {
-      document.execCommand("bold", false);
-    }
-    if (action === "list") {
-      document.execCommand("insertUnorderedList", false);
-    }
-    if (action === "checklist") {
-      insertRichHtml(
-        "<label style=\"display:flex;align-items:center;gap:8px;margin:6px 0;\"><input type=\"checkbox\" disabled><span>Checklist item</span></label>"
-      );
-    }
-
-    const nextContent = editor.innerHTML;
-    updateSelected("content", nextContent);
-  };
-
-  const handleRichInput = (event) => {
-    const nextContent = event.currentTarget.innerHTML;
-    lastEditorHtmlRef.current = nextContent;
-    updateSelected("content", nextContent);
   };
 
   const handleAttachmentUpload = async (event) => {
@@ -812,7 +633,6 @@ export default function NotesWorkspace() {
     setVideoInput(embedUrl);
     setError("");
     setSuccess("YouTube video attached.");
-    generateVideoSummary(embedUrl);
   };
 
   const handleVideoUpload = async (event) => {
@@ -887,162 +707,6 @@ export default function NotesWorkspace() {
     setError("");
   };
 
-  const generateVideoSummary = async (videoUrl) => {
-    if (!selectedNote?.id || !videoUrl) return;
-    try {
-      setVideoSummaryLoading(true);
-      const response = await fetch(`/api/notes/${selectedNote.id}/video-summary`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ video_url: videoUrl })
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.error || "Could not generate video summary");
-      }
-      setNotes((prev) =>
-        prev.map((note) =>
-          note.id === selectedId ? { ...note, video_summary: data.summary || "" } : note
-        )
-      );
-      setSuccess("AI video summary ready.");
-    } catch (err) {
-      setError(err?.message || "Unable to summarize this video.");
-    } finally {
-      setVideoSummaryLoading(false);
-    }
-  };
-
-  const getCurrentVideoSeconds = () => {
-    if (selectedNote?.video_type === "upload" && htmlVideoRef.current) {
-      return Math.floor(htmlVideoRef.current.currentTime || 0);
-    }
-    if (selectedNote?.video_type === "youtube" && youtubePlayerRef.current?.getCurrentTime) {
-      return Math.floor(youtubePlayerRef.current.getCurrentTime());
-    }
-    return null;
-  };
-
-  const seekToTimestamp = (seconds) => {
-    if (selectedNote?.video_type === "upload" && htmlVideoRef.current) {
-      htmlVideoRef.current.currentTime = seconds;
-      htmlVideoRef.current.play().catch(() => null);
-    }
-    if (selectedNote?.video_type === "youtube" && youtubePlayerRef.current?.seekTo) {
-      youtubePlayerRef.current.seekTo(seconds, true);
-    }
-  };
-
-  const addTimestampNote = async () => {
-    if (!selectedNote?.id) {
-      setError("Select a note first.");
-      return;
-    }
-    if (selectedNote?.video_type === "youtube" && !youtubeReady) {
-      setError("Press play on the YouTube video before adding a timestamp.");
-      return;
-    }
-    const seconds = getCurrentVideoSeconds();
-    if (seconds === null || Number.isNaN(seconds)) {
-      setError("Play the video first to capture the current time.");
-      return;
-    }
-    const text = timestampText.trim() || "Timestamp note";
-    try {
-      setAddingTimestamp(true);
-      setError("");
-      const response = await fetch(`/api/notes/${selectedNote.id}/timestamps`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ timestamp: seconds, text })
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.error || "Could not save timestamp");
-      }
-      setTimestampNotes((prev) => [data.timestamp, ...(prev || [])]);
-      setTimestampText("");
-      setSuccess("Timestamp note added.");
-    } catch (err) {
-      setError(err?.message || "Unable to add timestamp note.");
-    } finally {
-      setAddingTimestamp(false);
-    }
-  };
-
-  const startVoiceRecording = async () => {
-    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-      setError("Recording is not supported in this browser.");
-      return;
-    }
-    try {
-      setVoiceRecording(true);
-      setError("");
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      audioChunksRef.current = [];
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-      recorder.onstop = handleVoiceStop;
-      mediaRecorderRef.current = recorder;
-      recorder.start();
-    } catch (err) {
-      setVoiceRecording(false);
-      setError(err?.message || "Could not start recording. Check microphone permissions.");
-    }
-  };
-
-  const stopVoiceRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-    }
-    setVoiceRecording(false);
-  };
-
-  const handleVoiceStop = async () => {
-    mediaRecorderRef.current?.stream?.getTracks()?.forEach((track) => track.stop());
-    const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-    if (!blob.size) {
-      setError("No audio captured.");
-      return;
-    }
-    await sendVoiceForTranscription(blob);
-  };
-
-  const sendVoiceForTranscription = async (blob) => {
-    try {
-      setVoiceUploading(true);
-      const buffer = await blob.arrayBuffer();
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
-      const response = await fetch("/api/notes/voice-to-text", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          audioBase64: base64,
-          mimeType: blob.type || "audio/webm"
-        })
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.error || "Could not transcribe audio");
-      }
-      const transcript = data?.text || "";
-      if (transcript) {
-        const separator = selectedNote?.content?.trim() ? "\n\n" : "";
-        const nextContent = `${selectedNote?.content || ""}${separator}${transcript}`;
-        updateSelected("content", nextContent);
-        lastEditorHtmlRef.current = nextContent;
-        setSuccess("Voice note transcribed and inserted.");
-      }
-    } catch (err) {
-      setError(err?.message || "Voice transcription failed.");
-    } finally {
-      setVoiceUploading(false);
-    }
-  };
 
   const deleteSelectedNote = async () => {
     if (!selectedNote?.id) return;
@@ -1262,13 +926,6 @@ export default function NotesWorkspace() {
           >
             {summarizing ? "Summarizing..." : "AI summary"}
           </button>
-          <button
-            type="button"
-            onClick={() => setEditorMode(selectedNote?.editor_mode === "markdown" ? "rich" : "markdown")}
-            className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 transition hover:border-slate-500"
-          >
-            {selectedNote?.editor_mode === "markdown" ? "Switch to Rich" : "Switch to Markdown"}
-          </button>
           {canDelete ? (
             <button
               type="button"
@@ -1372,81 +1029,11 @@ export default function NotesWorkspace() {
           </div>
           {selectedNote?.video_url ? (
             <div className="mt-3 space-y-3 overflow-hidden rounded-xl border border-slate-800 bg-slate-900 p-2">
-              {selectedNote?.video_type === "youtube" ? (
-                <div
-                  id={youtubeElementId}
-                  ref={youtubeContainerRef}
-                  className="aspect-video w-full overflow-hidden rounded-lg bg-black"
-                />
-              ) : (
-                <video
-                  ref={htmlVideoRef}
-                  controls
-                  className="aspect-video w-full overflow-hidden rounded-lg bg-black"
-                  preload="metadata"
-                >
-                  <source src={selectedNote.video_url} type="video/mp4" />
-                  <source src={selectedNote.video_url} type="video/webm" />
-                  Your browser does not support the video tag.
-                </video>
-              )}
-              <div className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-950 p-2 sm:flex-row sm:items-center">
-                <input
-                  value={timestampText}
-                  onChange={(e) => setTimestampText(e.target.value)}
-                  placeholder="Note for this moment (auto-inserts timestamp)"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={addTimestampNote}
-                  disabled={addingTimestamp}
-                  className="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:opacity-60"
-                >
-                  {addingTimestamp ? "Saving..." : "Add Timestamp Note"}
-                </button>
-              </div>
+              {renderVideoPlayer(selectedNote)}
               <div className="space-y-1 rounded-lg border border-slate-800 bg-slate-950 p-2">
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span>Timestamp notes</span>
-                  {loadingTimestamps ? <span>Loading...</span> : null}
-                </div>
-                {!loadingTimestamps && !timestampNotes.length ? (
-                  <p className="text-xs text-slate-500">No timestamp notes yet.</p>
-                ) : null}
-                {timestampNotes.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => seekToTimestamp(item.timestamp_seconds)}
-                    className="flex w-full items-center justify-between rounded-md border border-slate-800 bg-slate-900 px-3 py-2 text-left text-sm text-slate-200 transition hover:border-slate-600"
-                  >
-                    <span className="font-mono text-xs text-indigo-300">{formatTimestamp(item.timestamp_seconds)}</span>
-                    <span className="ml-3 flex-1 truncate text-slate-200">{item.text}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
-                <div className="mb-1 flex items-center justify-between">
-                  <h5 className="text-sm font-semibold text-white">AI Video Summary</h5>
-                  <button
-                    type="button"
-                    onClick={() => generateVideoSummary(selectedNote.video_url)}
-                    disabled={videoSummaryLoading || selectedNote?.video_type !== "youtube"}
-                    className="text-xs text-indigo-300 underline-offset-2 hover:underline disabled:opacity-60"
-                  >
-                    {videoSummaryLoading ? "Summarizing..." : "Generate"}
-                  </button>
-                </div>
-                {selectedNote?.video_summary ? (
-                  <div className="whitespace-pre-line text-sm text-slate-200">
-                    {selectedNote.video_summary}
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-500">
-                    Paste a YouTube link and click Generate to create a structured summary.
-                  </p>
-                )}
+                <p className="text-xs text-slate-500">
+                  Advanced timestamp notes and AI video summary are disabled for stability.
+                </p>
               </div>
             </div>
           ) : null}
@@ -1467,39 +1054,23 @@ export default function NotesWorkspace() {
           </div>
           <textarea
             ref={editorRef}
-            value={selectedNote?.editor_mode === "markdown" ? selectedNote?.content || "" : ""}
+            value={selectedNote?.content || ""}
             onChange={(e) => updateSelected("content", e.target.value)}
             placeholder="Write your note in markdown..."
             rows={16}
-            className={`w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-slate-200 outline-none ${
-              selectedNote?.editor_mode === "markdown" ? "block" : "hidden"
-            }`}
-          />
-          <div
-            ref={richEditorRef}
-            contentEditable={selectedNote?.editor_mode === "rich"}
-            suppressContentEditableWarning
-            onInput={handleRichInput}
-            className={`min-h-[24rem] rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-slate-200 outline-none [&_h1]:mb-2 [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-semibold [&_ul]:ml-5 [&_ul]:list-disc [&_p]:mb-2 ${
-              selectedNote?.editor_mode === "rich" ? "block" : "hidden"
-            }`}
+            className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-slate-200 outline-none"
           />
         </div>
 
         <div className="mb-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
             <h4 className="text-sm font-semibold text-white">Preview</h4>
-            <span className="text-xs text-slate-500">
-              {selectedNote?.editor_mode === "markdown" ? "Markdown preview" : "Formatted preview"}
-            </span>
+            <span className="text-xs text-slate-500">Formatted preview</span>
           </div>
           <div
             className="prose prose-invert max-w-none text-sm text-slate-200"
             dangerouslySetInnerHTML={{
-              __html:
-                selectedNote?.editor_mode === "rich"
-                  ? sanitizeRichHtml(selectedNote?.content || "")
-                  : renderMarkdown(selectedNote?.content || "")
+              __html: renderNotePreview(selectedNote?.content || "")
             }}
           />
           {selectedNote?.video_url && selectedNote?.video_type ? (
@@ -1530,30 +1101,6 @@ export default function NotesWorkspace() {
               Click <span className="font-semibold text-violet-200">AI summary</span> to generate a summary for this note.
             </p>
           )}
-        </div>
-
-        <div className="mb-3 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h4 className="text-sm font-semibold text-white">Voice Notes</h4>
-            <span className="text-xs text-slate-400">
-              {voiceRecording ? "Recording..." : voiceUploading ? "Transcribing..." : "Record and insert"}
-            </span>
-          </div>
-          <p className="mb-2 text-xs text-slate-500">
-            Capture quick thoughts by speaking. We'll transcribe and insert them into the note automatically.
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={voiceRecording ? stopVoiceRecording : startVoiceRecording}
-              className={`rounded-xl px-3 py-2 text-sm font-semibold text-white transition ${
-                voiceRecording ? "bg-rose-500 hover:bg-rose-600" : "bg-cyan-500 hover:bg-cyan-600"
-              }`}
-            >
-              {voiceRecording ? "Stop Recording" : "Record Voice Note"}
-            </button>
-            {voiceUploading ? <span className="text-xs text-slate-300">Transcribing...</span> : null}
-          </div>
         </div>
 
         <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3">
@@ -1724,17 +1271,6 @@ function sanitizeRichHtml(value) {
     .replace(/javascript:/gi, "");
 }
 
-function getRichEditorContent(value) {
-  const content = String(value || "").trim();
-  if (!content) return "<p></p>";
-
-  if (/<[a-z][\s\S]*>/i.test(content)) {
-    return sanitizeRichHtml(content);
-  }
-
-  return renderMarkdown(content);
-}
-
 function formatInline(value) {
   return value.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 }
@@ -1748,14 +1284,10 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
-function formatTimestamp(seconds) {
-  const mins = Math.floor(seconds / 60)
-    .toString()
-    .padStart(2, "0");
-  const secs = Math.floor(seconds % 60)
-    .toString()
-    .padStart(2, "0");
-  return `${mins}:${secs}`;
+function renderNotePreview(value) {
+  const content = String(value || "").trim();
+  if (!content) return "<p></p>";
+  return /<[a-z][\s\S]*>/i.test(content) ? sanitizeRichHtml(content) : renderMarkdown(content);
 }
 
 function normalizeWorkspaceError(message) {
