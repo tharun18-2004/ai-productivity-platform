@@ -50,6 +50,7 @@ export default function AppShell({ title, subtitle, children, rightHeader }) {
   const usage = useFreeUsage();
 
   const loadNotifications = async () => {
+    if (!workspaceState?.ready) return;
     try {
       setNotificationsLoading(true);
       setNotificationsError("");
@@ -416,6 +417,11 @@ export default function AppShell({ title, subtitle, children, rightHeader }) {
     !workspaceState.loading &&
     !workspaceState.ready &&
     (workspaceState.error || !workspaceState.workspace);
+  const appendNoCache = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("nocache", Date.now().toString());
+    window.location.href = url.toString();
+  };
 
   return (
     <main
@@ -448,6 +454,13 @@ export default function AppShell({ title, subtitle, children, rightHeader }) {
               className="rounded-lg bg-amber-500 px-2 py-1 text-xs font-semibold text-slate-950 transition hover:bg-amber-400 disabled:opacity-60"
             >
               {refreshingWorkspace ? "Retrying..." : "Retry workspace load"}
+            </button>
+            <button
+              type="button"
+              onClick={appendNoCache}
+              className="rounded-lg border border-amber-300/50 px-2 py-1 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-400/20"
+            >
+              Force refresh
             </button>
             <span className="text-[11px] text-amber-200/85">
               If it persists, sign out and sign back in to refresh your session.
