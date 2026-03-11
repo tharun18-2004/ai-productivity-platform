@@ -1135,18 +1135,32 @@ export default function NotesWorkspace() {
             className="w-full resize-none rounded-2xl border border-slate-700 bg-[#07101a] px-4 py-4 text-sm leading-7 text-slate-200 outline-none"
           />
         </div>
-        <p className="mt-3 text-xs text-slate-500">Autosave is connected to Supabase.</p>
-        <p className="mt-1 text-xs text-slate-400">
-          {autosaveState === "saving"
-            ? "Saving changes..."
-            : autosaveState === "saved"
-              ? "All changes saved."
-              : autosaveState === "pending"
-                ? "Changes pending autosave..."
-                : autosaveState === "error"
-                  ? "Autosave failed. Retry by clicking outside the editor."
-                  : "Changes save automatically."}
-        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-slate-700 bg-slate-950 px-2.5 py-1 text-[11px] font-medium text-slate-400">
+            Autosave
+          </span>
+          <p
+            className={`text-xs ${
+              autosaveState === "saved"
+                ? "text-emerald-300"
+                : autosaveState === "saving" || autosaveState === "pending"
+                  ? "text-amber-300"
+                  : autosaveState === "error"
+                    ? "text-rose-300"
+                    : "text-slate-400"
+            }`}
+          >
+            {autosaveState === "saving"
+              ? "Saving changes..."
+              : autosaveState === "saved"
+                ? "All changes saved."
+                : autosaveState === "pending"
+                  ? "Changes pending autosave..."
+                  : autosaveState === "error"
+                    ? "Autosave failed. Retry by clicking outside the editor."
+                    : "Changes save automatically."}
+          </p>
+        </div>
           </div>
           <div className="space-y-4">
         <div className="rounded-[24px] border border-slate-800 bg-[#0a1018] p-4">
@@ -1380,10 +1394,29 @@ function normalizeWorkspaceError(message) {
 function extractYouTubeId(url) {
   if (!url) return null;
   const value = String(url).trim();
+  try {
+    const parsed = new URL(value);
+    const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+    if (host === "youtu.be") {
+      return parsed.pathname.split("/").filter(Boolean)[0] || null;
+    }
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      if (parsed.searchParams.get("v")) {
+        return parsed.searchParams.get("v");
+      }
+      const segments = parsed.pathname.split("/").filter(Boolean);
+      if (segments[0] === "embed" || segments[0] === "shorts" || segments[0] === "v") {
+        return segments[1] || null;
+      }
+    }
+  } catch {
+    // Fall back to regex parsing for partial or malformed URLs.
+  }
   const patterns = [
     /youtu\.be\/([\w-]{6,})/i,
     /youtube\.com\/(?:watch\?v=|embed\/|v\/)([\w-]{6,})/i,
-    /youtube\.com\/.+?[?&]v=([\w-]{6,})/i
+    /youtube\.com\/.+?[?&]v=([\w-]{6,})/i,
+    /youtube\.com\/shorts\/([\w-]{6,})/i
   ];
   for (const pattern of patterns) {
     const match = value.match(pattern);
