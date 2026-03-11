@@ -88,7 +88,7 @@ export default function NotesWorkspace() {
     return authUser?.email || workspaceState.user?.email || "";
   };
 
-  const loadNotes = async () => {
+  const loadNotes = async ({ allowRetry = true } = {}) => {
     if (!workspaceState?.ready) return;
     setLoading(true);
     setError("");
@@ -122,10 +122,12 @@ export default function NotesWorkspace() {
     } catch (err) {
       const message = normalizeWorkspaceError(err?.message || "Unable to load notes.");
       const workspaceError = /session expired or workspace missing/i.test(message);
-      if (workspaceError && !notesRetryRef.current && typeof workspaceState.refresh === "function") {
+      if (workspaceError && allowRetry && !notesRetryRef.current && typeof workspaceState.refresh === "function") {
         notesRetryRef.current = true;
         await workspaceState.refresh();
-        await loadNotes();
+        setTimeout(() => {
+          loadNotes({ allowRetry: false });
+        }, 0);
         return;
       }
       setError(message);

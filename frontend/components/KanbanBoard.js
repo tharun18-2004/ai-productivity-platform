@@ -85,7 +85,7 @@ export default function KanbanBoard() {
   const boardRef = useRef(initialBoard);
   const tasksRetryRef = useRef(false);
 
-  const loadTasks = async () => {
+  const loadTasks = async ({ allowRetry = true } = {}) => {
     if (!workspaceState?.ready) return;
     setLoading(true);
     setError("");
@@ -113,10 +113,12 @@ export default function KanbanBoard() {
     } catch (err) {
       const message = err?.message || "Unable to load tasks.";
       const workspaceError = /workspace not found/i.test(message);
-      if (workspaceError && !tasksRetryRef.current && typeof workspaceState.refresh === "function") {
+      if (workspaceError && allowRetry && !tasksRetryRef.current && typeof workspaceState.refresh === "function") {
         tasksRetryRef.current = true;
         await workspaceState.refresh();
-        await loadTasks();
+        setTimeout(() => {
+          loadTasks({ allowRetry: false });
+        }, 0);
         return;
       }
       setError(
