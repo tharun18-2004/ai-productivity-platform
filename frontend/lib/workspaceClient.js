@@ -1,7 +1,20 @@
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { supabase } from "./supabaseClient";
 
-export function useWorkspaceContext() {
+const defaultWorkspaceState = {
+  loading: true,
+  error: "",
+  workspace: null,
+  membership: null,
+  members: [],
+  user: null,
+  ready: false,
+  refresh: async () => {}
+};
+
+const WorkspaceContext = createContext(defaultWorkspaceState);
+
+export function WorkspaceProvider({ children }) {
   const [workspaceState, setWorkspaceState] = useState({
     loading: true,
     error: "",
@@ -78,5 +91,18 @@ export function useWorkspaceContext() {
     };
   }, []);
 
-  return { ...workspaceState, refresh: refreshRef.current };
+  return (
+    <WorkspaceContext.Provider
+      value={{
+        ...workspaceState,
+        refresh: refreshRef.current
+      }}
+    >
+      {children}
+    </WorkspaceContext.Provider>
+  );
+}
+
+export function useWorkspaceContext() {
+  return useContext(WorkspaceContext);
 }

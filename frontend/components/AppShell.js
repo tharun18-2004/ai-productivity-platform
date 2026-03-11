@@ -2,7 +2,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { useWorkspaceContext } from "../lib/workspaceClient";
+import { WorkspaceProvider, useWorkspaceContext } from "../lib/workspaceClient";
 import WorkspaceSwitcher from "./workspace/WorkspaceSwitcher";
 import MemberAvatarGroup from "./workspace/MemberAvatarGroup";
 import InviteMemberPanel from "./workspace/InviteMemberPanel";
@@ -18,7 +18,15 @@ const navItems = [
   { href: "/settings", label: "Settings", icon: "S" }
 ];
 
-export default function AppShell({ title, subtitle, children, rightHeader }) {
+export default function AppShell(props) {
+  return (
+    <WorkspaceProvider>
+      <AppShellContent {...props} />
+    </WorkspaceProvider>
+  );
+}
+
+function AppShellContent({ title, subtitle, children, rightHeader }) {
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
   const [theme, setTheme] = useState("dark");
