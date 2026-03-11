@@ -1193,14 +1193,25 @@ export default function NotesWorkspace() {
                     onClick={() => setVideoPlayerMode("player")}
                     className="group relative block w-full overflow-hidden rounded-[24px] border border-slate-700/80 bg-slate-950 text-left ring-1 ring-white/5 transition hover:border-slate-500"
                   >
-                    <div
-                      className="relative w-full bg-slate-950 pt-[56.25%]"
-                      style={{
-                        backgroundImage: `linear-gradient(180deg, rgba(2,6,23,0.08), rgba(2,6,23,0.72)), url(${getYouTubeThumbnailUrl(selectedNote)})`,
-                        backgroundPosition: "center",
-                        backgroundSize: "cover"
-                      }}
-                    >
+                    <div className="relative w-full bg-slate-950 pt-[56.25%]">
+                      <img
+                        src={getYouTubeThumbnailUrl(selectedNote)}
+                        alt="YouTube video thumbnail"
+                        className="absolute inset-0 h-full w-full object-cover"
+                        loading="lazy"
+                        onError={(event) => {
+                          const fallback = getYouTubeFallbackThumbnailUrl(selectedNote);
+                          if (fallback && event.currentTarget.src !== fallback) {
+                            event.currentTarget.src = fallback;
+                            return;
+                          }
+                          event.currentTarget.style.display = "none";
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.08),rgba(2,6,23,0.72))]" />
+                      <div className="absolute left-4 top-4 rounded-full border border-white/10 bg-black/45 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/85">
+                        YouTube
+                      </div>
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div className="flex h-20 w-20 items-center justify-center rounded-full border border-white/15 bg-black/65 text-white shadow-[0_18px_36px_rgba(0,0,0,0.35)] transition group-hover:scale-105">
                           <span className="ml-1 text-2xl">Play</span>
@@ -1632,6 +1643,21 @@ function getYouTubeThumbnailUrl(note) {
   const embedMatch = value.match(/youtube\.com\/embed\/([\w-]{6,})/i);
   if (embedMatch?.[1]) {
     return `https://img.youtube.com/vi/${embedMatch[1]}/maxresdefault.jpg`;
+  }
+
+  return "";
+}
+
+function getYouTubeFallbackThumbnailUrl(note) {
+  const directId = extractYouTubeId(note?.video_url || "");
+  if (directId) {
+    return `https://img.youtube.com/vi/${directId}/hqdefault.jpg`;
+  }
+
+  const value = String(note?.video_url || "");
+  const embedMatch = value.match(/youtube\.com\/embed\/([\w-]{6,})/i);
+  if (embedMatch?.[1]) {
+    return `https://img.youtube.com/vi/${embedMatch[1]}/hqdefault.jpg`;
   }
 
   return "";
