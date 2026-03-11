@@ -45,10 +45,10 @@ export default function NotesWorkspace() {
   const [noteSummaries, setNoteSummaries] = useState({});
   const [summaryError, setSummaryError] = useState("");
   const [autosaveState, setAutosaveState] = useState("idle");
-  const [videoPreviewState, setVideoPreviewState] = useState("idle");
+  const [videoPlayerMode, setVideoPlayerMode] = useState("idle");
   const editorRef = useRef(null);
   const autosaveTimeoutRef = useRef(null);
-  const videoPreviewTimeoutRef = useRef(null);
+  const videoPlayerTimeoutRef = useRef(null);
   const notesRetryRef = useRef(false);
   const saveInFlightRef = useRef("");
   const lastSavedKeyRef = useRef("");
@@ -225,28 +225,38 @@ export default function NotesWorkspace() {
   }, [selectedId, selectedNote?.video_url]);
 
   useEffect(() => {
-    clearTimeout(videoPreviewTimeoutRef.current);
+    clearTimeout(videoPlayerTimeoutRef.current);
 
     if (!selectedNote?.video_url || !selectedNote?.video_type) {
-      setVideoPreviewState("idle");
+      setVideoPlayerMode("idle");
       return undefined;
     }
 
     if (selectedNote.video_type === "youtube") {
-      setVideoPreviewState("loading");
-      videoPreviewTimeoutRef.current = setTimeout(() => {
-        setVideoPreviewState((current) => (current === "ready" ? current : "failed"));
-      }, 4500);
-      return () => {
-        clearTimeout(videoPreviewTimeoutRef.current);
-      };
+      setVideoPlayerMode("poster");
+      return undefined;
     }
 
-    setVideoPreviewState("loading");
+    setVideoPlayerMode("player");
     return () => {
-      clearTimeout(videoPreviewTimeoutRef.current);
+      clearTimeout(videoPlayerTimeoutRef.current);
     };
   }, [selectedId, selectedNote?.video_url, selectedNote?.video_type]);
+
+  useEffect(() => {
+    clearTimeout(videoPlayerTimeoutRef.current);
+    if (selectedNote?.video_type !== "youtube" || videoPlayerMode !== "player") {
+      return undefined;
+    }
+
+    videoPlayerTimeoutRef.current = setTimeout(() => {
+      setVideoPlayerMode((current) => (current === "player" ? "failed" : current));
+    }, 5000);
+
+    return () => {
+      clearTimeout(videoPlayerTimeoutRef.current);
+    };
+  }, [selectedId, selectedNote?.video_type, videoPlayerMode]);
 
   useEffect(() => {
     if (!selectedNote?.id || !notesLoaded) return undefined;
@@ -291,7 +301,7 @@ export default function NotesWorkspace() {
   useEffect(
     () => () => {
       clearTimeout(autosaveTimeoutRef.current);
-      clearTimeout(videoPreviewTimeoutRef.current);
+      clearTimeout(videoPlayerTimeoutRef.current);
     },
     []
   );
@@ -1146,7 +1156,7 @@ export default function NotesWorkspace() {
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Now Playing</p>
                   <p className="mt-1 text-sm font-medium text-slate-200">Learn while you write without leaving the workspace</p>
                 </div>
-                {videoPreviewState === "failed" ? (
+                {videoPlayerMode === "failed" ? (
                   <div className="rounded-[24px] border border-amber-400/20 bg-amber-500/10 px-5 py-6 text-left">
                     <p className="text-sm font-semibold text-amber-100">Video is attached but preview could not load here.</p>
                     <p className="mt-2 text-xs leading-6 text-amber-50/70">
@@ -1177,11 +1187,39 @@ export default function NotesWorkspace() {
                       </button>
                     </div>
                   </div>
+                ) : selectedNote?.video_type === "youtube" && videoPlayerMode !== "player" ? (
+                  <button
+                    type="button"
+                    onClick={() => setVideoPlayerMode("player")}
+                    className="group relative block w-full overflow-hidden rounded-[24px] border border-slate-700/80 bg-slate-950 text-left ring-1 ring-white/5 transition hover:border-slate-500"
+                  >
+                    <div
+                      className="relative w-full bg-slate-950 pt-[56.25%]"
+                      style={{
+                        backgroundImage: `linear-gradient(180deg, rgba(2,6,23,0.08), rgba(2,6,23,0.72)), url(${getYouTubeThumbnailUrl(selectedNote)})`,
+                        backgroundPosition: "center",
+                        backgroundSize: "cover"
+                      }}
+                    >
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="flex h-20 w-20 items-center justify-center rounded-full border border-white/15 bg-black/65 text-white shadow-[0_18px_36px_rgba(0,0,0,0.35)] transition group-hover:scale-105">
+                          <span className="ml-1 text-2xl">Play</span>
+                        </div>
+                      </div>
+                      <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,rgba(2,6,23,0),rgba(2,6,23,0.88))] px-5 py-4">
+                        <p className="text-sm font-semibold text-white">Load video preview</p>
+                        <p className="mt-1 text-xs text-slate-300">
+                          Click to play the YouTube video inside this note.
+                        </p>
+                      </div>
+                    </div>
+                  </button>
                 ) : (
                   <div className="overflow-hidden rounded-[24px] border border-slate-700/80 bg-black ring-1 ring-white/5">
                     {renderVideoPlayer(selectedNote, {
-                      onLoad: () => setVideoPreviewState("ready"),
-                      onError: () => setVideoPreviewState("failed")
+                      autoplay: selectedNote?.video_type === "youtube" && videoPlayerMode === "player",
+                      onLoad: () => clearTimeout(videoPlayerTimeoutRef.current),
+                      onError: () => setVideoPlayerMode("failed")
                     })}
                   </div>
                 )}
@@ -1514,13 +1552,13 @@ function extractYouTubeId(url) {
 
 function renderVideoPlayer(note, handlers = {}) {
   if (!note?.video_url || !note?.video_type) return null;
-  const { onLoad, onError } = handlers;
+  const { autoplay = false, onLoad, onError } = handlers;
   if (note.video_type === "youtube") {
     return (
       <div className="relative w-full overflow-hidden rounded-[24px] bg-black pt-[56.25%]">
         <iframe
           title="YouTube video"
-          src={note.video_url}
+          src={toPlayableEmbedUrl(note.video_url, autoplay)}
           className="absolute inset-0 h-full w-full border-0"
           loading="lazy"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -1564,6 +1602,39 @@ function toExternalVideoUrl(note) {
   }
 
   return value;
+}
+
+function toPlayableEmbedUrl(value, autoplay = false) {
+  const source = String(value || "");
+  if (!source) return source;
+
+  try {
+    const parsed = new URL(source);
+    if (autoplay) {
+      parsed.searchParams.set("autoplay", "1");
+      parsed.searchParams.set("rel", "0");
+    }
+    return parsed.toString();
+  } catch {
+    return autoplay
+      ? `${source}${source.includes("?") ? "&" : "?"}autoplay=1&rel=0`
+      : source;
+  }
+}
+
+function getYouTubeThumbnailUrl(note) {
+  const directId = extractYouTubeId(note?.video_url || "");
+  if (directId) {
+    return `https://img.youtube.com/vi/${directId}/maxresdefault.jpg`;
+  }
+
+  const value = String(note?.video_url || "");
+  const embedMatch = value.match(/youtube\.com\/embed\/([\w-]{6,})/i);
+  if (embedMatch?.[1]) {
+    return `https://img.youtube.com/vi/${embedMatch[1]}/maxresdefault.jpg`;
+  }
+
+  return "";
 }
 
 function StatCard({ label, value }) {
