@@ -49,6 +49,7 @@ export default function NotesWorkspace() {
   const autosaveTimeoutRef = useRef(null);
   const notesRetryRef = useRef(false);
   const saveInFlightRef = useRef("");
+  const lastSavedKeyRef = useRef("");
   const lastLocalSaveAtRef = useRef(0);
   const lastPersistedRef = useRef({});
   const selectedNote = notes.find((note) => note.id === selectedId) || notes[0] || null;
@@ -94,6 +95,7 @@ export default function NotesWorkspace() {
         acc[note.id] = serializeNote(note);
         return acc;
       }, {});
+      lastSavedKeyRef.current = "";
       setNotes(normalized);
       setNotesPhase("loaded");
       setSelectedId((prev) => {
@@ -113,6 +115,7 @@ export default function NotesWorkspace() {
             acc[note.id] = serializeNote(note);
             return acc;
           }, {});
+          lastSavedKeyRef.current = "";
           setNotes(normalized);
           setNotesPhase("loaded");
           setSelectedId((prev) => {
@@ -222,12 +225,17 @@ export default function NotesWorkspace() {
   useEffect(() => {
     if (!selectedNote?.id || !notesLoaded) return undefined;
     const serialized = serializeNote(selectedNote);
+    const saveKey = `${selectedNote.id}:${serialized}`;
     if (
       lastPersistedRef.current[selectedNote.id] === serialized ||
-      saveInFlightRef.current === `${selectedNote.id}:${serialized}`
+      saveInFlightRef.current === saveKey ||
+      lastSavedKeyRef.current === saveKey
     ) {
-      if (autosaveState !== "saving") {
-        setAutosaveState("idle");
+      if (
+        autosaveState !== "saving" &&
+        lastPersistedRef.current[selectedNote.id] === serialized
+      ) {
+        setAutosaveState((current) => (current === "saved" ? current : "idle"));
       }
       return undefined;
     }
@@ -270,7 +278,8 @@ export default function NotesWorkspace() {
     const saveKey = `${current.id}:${serialized}`;
     if (
       lastPersistedRef.current[current.id] === serialized ||
-      saveInFlightRef.current === saveKey
+      saveInFlightRef.current === saveKey ||
+      lastSavedKeyRef.current === saveKey
     ) {
       return;
     }
@@ -298,7 +307,9 @@ export default function NotesWorkspace() {
         throw new Error(data?.error || "Save failed");
       }
       const savedNote = normalizeNote(data.note) || current;
-      lastPersistedRef.current[current.id] = serializeNote(savedNote);
+      const savedSerialized = serializeNote(savedNote);
+      lastPersistedRef.current[current.id] = savedSerialized;
+      lastSavedKeyRef.current = `${current.id}:${savedSerialized}`;
       lastLocalSaveAtRef.current = Date.now();
       setNotes((prev) =>
         prev.map((note) =>
@@ -346,7 +357,9 @@ export default function NotesWorkspace() {
         }
       const newNote = normalizeNote(data?.note);
       if (!newNote) return;
-      lastPersistedRef.current[newNote.id] = serializeNote(newNote);
+      const newNoteSerialized = serializeNote(newNote);
+      lastPersistedRef.current[newNote.id] = newNoteSerialized;
+      lastSavedKeyRef.current = `${newNote.id}:${newNoteSerialized}`;
       setNotesPhase("loaded");
       setNotes((prev) => [newNote, ...prev]);
       setSelectedId(newNote.id);
