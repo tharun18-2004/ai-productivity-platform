@@ -1309,13 +1309,13 @@ export default function NotesWorkspace() {
           </div>
           <div className="space-y-4">
         <div className="rounded-[28px] border border-slate-800/90 bg-[linear-gradient(180deg,rgba(15,22,35,0.98),rgba(7,11,18,0.98))] p-5 shadow-[0_20px_48px_rgba(0,0,0,0.28)]">
-          <div className="mb-4 flex items-start justify-between gap-3 border-b border-slate-800/80 pb-3">
+          <div className="mb-3 flex items-start justify-between gap-3 border-b border-slate-800/80 pb-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Preview</p>
-              <h4 className="mt-1 text-base font-semibold text-white">Formatted preview</h4>
+              <h4 className="mt-1 text-base font-semibold text-white">Preview</h4>
             </div>
             <span className="rounded-full border border-slate-700 bg-slate-900/80 px-2.5 py-1 text-[11px] font-medium text-slate-400">
-              Live note output
+              Live
             </span>
           </div>
           <div
@@ -1327,17 +1327,17 @@ export default function NotesWorkspace() {
         </div>
 
         <div className="rounded-[28px] border border-violet-500/20 bg-[linear-gradient(180deg,rgba(76,29,149,0.12),rgba(10,14,22,0.96))] p-5 shadow-[0_20px_48px_rgba(0,0,0,0.28)]">
-          <div className="mb-4 flex items-start justify-between gap-3 border-b border-violet-500/10 pb-3">
+          <div className="mb-3 flex items-start justify-between gap-3 border-b border-violet-500/10 pb-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-300/80">AI Summary</p>
-              <h4 className="mt-1 text-base font-semibold text-white">Workspace assistant output</h4>
+              <h4 className="mt-1 text-base font-semibold text-white">AI Summary</h4>
             </div>
             <span className="rounded-full border border-violet-400/20 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-200">
               {summarizing ? "Generating..." : "Summary output"}
             </span>
           </div>
           <p className="mb-3 text-xs leading-6 text-slate-400">
-            Best for meeting notes, project updates, and rough note dumps.
+            Best for meeting notes, project updates, and rough drafts.
           </p>
           {summaryError ? (
             <div className="rounded-[20px] border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-xs text-rose-200">
@@ -1355,10 +1355,10 @@ export default function NotesWorkspace() {
         </div>
 
         <div className="rounded-[28px] border border-slate-800/90 bg-[linear-gradient(180deg,rgba(15,22,35,0.98),rgba(7,11,18,0.98))] p-5 shadow-[0_20px_48px_rgba(0,0,0,0.28)]">
-          <div className="mb-4 flex items-start justify-between gap-3 border-b border-slate-800/80 pb-3">
+          <div className="mb-3 flex items-start justify-between gap-3 border-b border-slate-800/80 pb-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Attachments</p>
-              <h4 className="mt-1 text-base font-semibold text-white">Files for this note</h4>
+              <h4 className="mt-1 text-base font-semibold text-white">Attachments</h4>
               <p className="mt-2 text-xs leading-6 text-slate-400">
                 Upload screenshots or files to this note.
                 {attachments.length ? ` ${attachments.length} file${attachments.length === 1 ? "" : "s"} attached.` : ""}
