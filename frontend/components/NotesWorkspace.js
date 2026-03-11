@@ -45,8 +45,10 @@ export default function NotesWorkspace() {
   const [noteSummaries, setNoteSummaries] = useState({});
   const [summaryError, setSummaryError] = useState("");
   const [autosaveState, setAutosaveState] = useState("idle");
+  const [videoPreviewState, setVideoPreviewState] = useState("idle");
   const editorRef = useRef(null);
   const autosaveTimeoutRef = useRef(null);
+  const videoPreviewTimeoutRef = useRef(null);
   const notesRetryRef = useRef(false);
   const saveInFlightRef = useRef("");
   const lastSavedKeyRef = useRef("");
@@ -223,6 +225,30 @@ export default function NotesWorkspace() {
   }, [selectedId, selectedNote?.video_url]);
 
   useEffect(() => {
+    clearTimeout(videoPreviewTimeoutRef.current);
+
+    if (!selectedNote?.video_url || !selectedNote?.video_type) {
+      setVideoPreviewState("idle");
+      return undefined;
+    }
+
+    if (selectedNote.video_type === "youtube") {
+      setVideoPreviewState("loading");
+      videoPreviewTimeoutRef.current = setTimeout(() => {
+        setVideoPreviewState((current) => (current === "ready" ? current : "failed"));
+      }, 4500);
+      return () => {
+        clearTimeout(videoPreviewTimeoutRef.current);
+      };
+    }
+
+    setVideoPreviewState("loading");
+    return () => {
+      clearTimeout(videoPreviewTimeoutRef.current);
+    };
+  }, [selectedId, selectedNote?.video_url, selectedNote?.video_type]);
+
+  useEffect(() => {
     if (!selectedNote?.id || !notesLoaded) return undefined;
     const serialized = serializeNote(selectedNote);
     const saveKey = `${selectedNote.id}:${serialized}`;
@@ -265,6 +291,7 @@ export default function NotesWorkspace() {
   useEffect(
     () => () => {
       clearTimeout(autosaveTimeoutRef.current);
+      clearTimeout(videoPreviewTimeoutRef.current);
     },
     []
   );
@@ -1057,7 +1084,7 @@ export default function NotesWorkspace() {
                   </span>
                 ) : null}
               </div>
-              <p className="text-xs text-slate-500">Attach a YouTube link or upload an mp4/webm (≤50MB).</p>
+              <p className="text-xs text-slate-500">Attach a YouTube link or upload an mp4/webm (max 50MB).</p>
             </div>
             {selectedNote?.video_url ? (
               <div className="flex flex-wrap items-center justify-end gap-2">
@@ -1107,7 +1134,7 @@ export default function NotesWorkspace() {
                     disabled={uploadingVideo || !selectedNote?.id}
                   />
                 </label>
-                <p className="text-[11px] text-slate-500">Allowed: mp4, webm · Max 50MB · Auth required</p>
+                <p className="text-[11px] text-slate-500">Allowed: mp4, webm, max 50MB, auth required</p>
               </div>
             </div>
           ) : null}
@@ -1119,13 +1146,49 @@ export default function NotesWorkspace() {
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Now Playing</p>
                   <p className="mt-1 text-sm font-medium text-slate-200">Learn while you write without leaving the workspace</p>
                 </div>
-                <div className="overflow-hidden rounded-[24px] border border-slate-700/80 bg-black ring-1 ring-white/5">
-                  {renderVideoPlayer(selectedNote)}
-                </div>
+                {videoPreviewState === "failed" ? (
+                  <div className="rounded-[24px] border border-amber-400/20 bg-amber-500/10 px-5 py-6 text-left">
+                    <p className="text-sm font-semibold text-amber-100">Video is attached but preview could not load here.</p>
+                    <p className="mt-2 text-xs leading-6 text-amber-50/70">
+                      The link is saved to this note. Open it in YouTube or replace it if the embed is blocked.
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <a
+                        href={toExternalVideoUrl(selectedNote)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-3.5 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20"
+                      >
+                        Open in YouTube
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => setEditingVideo(true)}
+                        className="rounded-2xl border border-slate-700 bg-slate-900/90 px-3.5 py-2 text-xs font-semibold text-slate-100 transition hover:border-slate-500"
+                      >
+                        Change Video
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearVideo}
+                        className="rounded-2xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20"
+                      >
+                        Remove Video
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="overflow-hidden rounded-[24px] border border-slate-700/80 bg-black ring-1 ring-white/5">
+                    {renderVideoPlayer(selectedNote, {
+                      onLoad: () => setVideoPreviewState("ready"),
+                      onError: () => setVideoPreviewState("failed")
+                    })}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="rounded-[28px] border border-dashed border-slate-700 bg-[linear-gradient(180deg,rgba(10,16,24,0.92),rgba(5,10,16,0.98))] px-6 py-12 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900/90 text-xl text-slate-300">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900/90 text-sm font-semibold text-slate-300">
                   ▶
                 </div>
                 <p className="mt-4 text-base font-semibold text-slate-100">No video attached yet</p>
@@ -1449,31 +1512,58 @@ function extractYouTubeId(url) {
   return null;
 }
 
-function renderVideoPlayer(note) {
+function renderVideoPlayer(note, handlers = {}) {
   if (!note?.video_url || !note?.video_type) return null;
+  const { onLoad, onError } = handlers;
   if (note.video_type === "youtube") {
     return (
-      <iframe
-        title="YouTube video"
-        src={note.video_url}
-        className="block aspect-video w-full"
-        loading="lazy"
-        allowFullScreen
-      />
+      <div className="relative w-full overflow-hidden rounded-[24px] bg-black pt-[56.25%]">
+        <iframe
+          title="YouTube video"
+          src={note.video_url}
+          className="absolute inset-0 h-full w-full border-0"
+          loading="lazy"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerPolicy="strict-origin-when-cross-origin"
+          onLoad={onLoad}
+          onError={onError}
+          allowFullScreen
+        />
+      </div>
     );
   }
 
   if (note.video_type === "upload") {
     return (
-      <video controls className="block aspect-video w-full bg-black" preload="metadata">
-        <source src={note.video_url} type="video/mp4" />
-        <source src={note.video_url} type="video/webm" />
-        Your browser does not support the video tag.
-      </video>
+      <div className="relative w-full overflow-hidden rounded-[24px] bg-black pt-[56.25%]">
+        <video
+          controls
+          className="absolute inset-0 h-full w-full bg-black object-cover"
+          preload="metadata"
+          onLoadedData={onLoad}
+          onError={onError}
+        >
+          <source src={note.video_url} type="video/mp4" />
+          <source src={note.video_url} type="video/webm" />
+          Your browser does not support the video tag.
+        </video>
+      </div>
     );
   }
 
   return null;
+}
+
+function toExternalVideoUrl(note) {
+  const value = String(note?.video_url || "");
+  if (!value) return "#";
+
+  const embedMatch = value.match(/youtube\.com\/embed\/([\w-]{6,})/i);
+  if (embedMatch?.[1]) {
+    return `https://www.youtube.com/watch?v=${embedMatch[1]}`;
+  }
+
+  return value;
 }
 
 function StatCard({ label, value }) {
