@@ -81,6 +81,12 @@ export default function NotesWorkspace() {
   const canDelete = ["owner", "admin"].includes(
     String(workspaceState.membership?.role || "").toLowerCase()
   );
+  const getRequestEmail = async () => {
+    const {
+      data: { user: authUser }
+    } = await supabase.auth.getUser();
+    return authUser?.email || workspaceState.user?.email || "";
+  };
 
   const loadNotes = async () => {
     if (!workspaceState?.ready) return;
@@ -88,10 +94,7 @@ export default function NotesWorkspace() {
     setError("");
     setSuccess("");
     try {
-      const {
-        data: { user: authUser }
-      } = await supabase.auth.getUser();
-      const email = authUser?.email || workspaceState.user?.email || "";
+      const email = await getRequestEmail();
       if (!email) {
         throw new Error("Sign in to load workspace notes.");
       }
@@ -176,11 +179,8 @@ export default function NotesWorkspace() {
 
       setLoadingAttachments(true);
       try {
-        const {
-        data: { user: authUser }
-      } = await supabase.auth.getUser();
-      const params = new URLSearchParams();
-      const email = authUser?.email || workspaceState.user?.email || "";
+        const params = new URLSearchParams();
+      const email = await getRequestEmail();
       if (email) {
         params.set("email", email);
       }
@@ -210,6 +210,10 @@ export default function NotesWorkspace() {
   }, [selectedId]);
 
   useEffect(() => {
+    if (!workspaceState.ready) {
+      setTimestampNotes([]);
+      return;
+    }
     if (!selectedNote?.id) {
       setTimestampNotes([]);
       return;
@@ -217,7 +221,16 @@ export default function NotesWorkspace() {
     const fetchTimestamps = async () => {
       setLoadingTimestamps(true);
       try {
-        const response = await fetch(`/api/notes/${selectedNote.id}/timestamps`);
+        const params = new URLSearchParams();
+        const email = await getRequestEmail();
+        if (email) {
+          params.set("email", email);
+        }
+        const response = await fetch(
+          params.toString()
+            ? `/api/notes/${selectedNote.id}/timestamps?${params.toString()}`
+            : `/api/notes/${selectedNote.id}/timestamps`
+        );
         const data = await response.json();
         if (!response.ok) {
           throw new Error(data?.error || "Failed to load timestamps");
@@ -231,7 +244,7 @@ export default function NotesWorkspace() {
       }
     };
     fetchTimestamps();
-  }, [selectedNote?.id]);
+  }, [selectedNote?.id, workspaceState.ready]);
 
   useEffect(() => {
     if (selectedNote?.video_type === "youtube") {
@@ -340,7 +353,7 @@ export default function NotesWorkspace() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: workspaceState.user?.email || "",
+          email: await getRequestEmail(),
           title: current.title,
           content: current.content,
           video_url: current.video_url,
@@ -382,7 +395,7 @@ export default function NotesWorkspace() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            email: (await supabase.auth.getUser()).data.user?.email || "",
+            email: await getRequestEmail(),
             title: "Untitled note",
             content: "",
             video_url: null,
@@ -580,7 +593,7 @@ export default function NotesWorkspace() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: workspaceState.user?.email || "",
+          email: await getRequestEmail(),
           summary: result
         })
       }).catch(() => null);
@@ -738,7 +751,7 @@ export default function NotesWorkspace() {
           file_name: file.name,
           file_type: file.type,
           file_url: publicData?.publicUrl || "",
-          email: workspaceState.user?.email || ""
+          email: await getRequestEmail()
         })
       });
       const data = await response.json();
@@ -1047,7 +1060,7 @@ export default function NotesWorkspace() {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: workspaceState.user?.email || ""
+          email: await getRequestEmail()
         })
       });
       const data = await response.json();
