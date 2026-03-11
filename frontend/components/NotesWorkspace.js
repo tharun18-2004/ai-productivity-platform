@@ -1336,8 +1336,8 @@ export default function NotesWorkspace() {
               {summarizing ? "Generating..." : "Summary output"}
             </span>
           </div>
-          <p className="mb-3 text-xs leading-6 text-slate-400">
-            Best for meeting notes, project updates, and rough drafts.
+          <p className="mb-2 text-xs leading-5 text-slate-400">
+            Summaries for notes, updates, and rough drafts.
           </p>
           {summaryError ? (
             <div className="rounded-[20px] border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-xs text-rose-200">
@@ -1359,7 +1359,7 @@ export default function NotesWorkspace() {
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">File library</p>
               <h4 className="mt-1 text-base font-semibold text-white">Attachments</h4>
-              <p className="mt-2 text-xs leading-6 text-slate-400">
+              <p className="mt-1 text-xs leading-5 text-slate-400">
                 Upload screenshots or files to this note.
                 {attachments.length ? ` ${attachments.length} file${attachments.length === 1 ? "" : "s"} attached.` : ""}
               </p>
@@ -1380,7 +1380,7 @@ export default function NotesWorkspace() {
             </div>
           ) : null}
           {!loadingAttachments && attachments.length === 0 ? (
-            <div className="rounded-[20px] border border-dashed border-slate-700 bg-slate-950/40 px-4 py-4 text-sm text-slate-400">
+            <div className="rounded-[20px] border border-dashed border-slate-700 bg-slate-950/40 px-4 py-4 text-sm leading-6 text-slate-400">
               No attachments yet.
             </div>
           ) : null}
