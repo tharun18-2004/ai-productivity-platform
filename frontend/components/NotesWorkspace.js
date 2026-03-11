@@ -771,15 +771,18 @@ export default function NotesWorkspace() {
   };
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[320px_1fr]">
-      <aside className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">My Notes</h3>
-          <button type="button" onClick={createNote} className="rounded-lg bg-indigo-500 px-2.5 py-1 text-xs font-semibold text-white">
+    <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+      <aside className="rounded-[28px] border border-[#1a2233] bg-[#0b111a] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Workspace Notes</p>
+            <h3 className="mt-1 text-lg font-semibold text-white">My Notes</h3>
+          </div>
+          <button type="button" onClick={createNote} className="rounded-xl bg-indigo-500 px-3 py-2 text-xs font-semibold text-white shadow-[0_10px_30px_rgba(99,102,241,0.35)]">
             + New
           </button>
         </div>
-        <div className="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+        <div className="mb-4 grid grid-cols-2 gap-2">
           <StatCard label="Total" value={stats.total} />
           <StatCard label="Pinned" value={stats.pinned} />
           <StatCard label="Ideas" value={stats.idea} />
@@ -791,13 +794,13 @@ export default function NotesWorkspace() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search notes..."
-          className="mb-3 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none"
+          className="mb-3 w-full rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-200 outline-none"
         />
         <div className="mb-3 grid gap-2">
           <select
             value={activeCategory}
             onChange={(e) => setActiveCategory(e.target.value)}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none"
+            className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-200 outline-none"
           >
             <option value="all">All categories</option>
             {categoryOptions.map((category) => (
@@ -809,7 +812,7 @@ export default function NotesWorkspace() {
           <select
             value={activeTag}
             onChange={(e) => setActiveTag(e.target.value)}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 outline-none"
+            className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-200 outline-none"
           >
             <option value="all">All tags</option>
             {availableTags.map((tag) => (
@@ -821,7 +824,7 @@ export default function NotesWorkspace() {
           <button
             type="button"
             onClick={() => setShowPinnedOnly((prev) => !prev)}
-            className={`rounded-xl border px-3 py-2 text-sm transition ${
+            className={`rounded-2xl border px-3 py-2.5 text-sm transition ${
               showPinnedOnly
                 ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
                 : "border-slate-700 bg-slate-950 text-slate-300"
@@ -830,7 +833,7 @@ export default function NotesWorkspace() {
             {showPinnedOnly ? "Showing pinned only" : "Show pinned only"}
           </button>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {notesPhase === "loading" ? <p className="text-xs text-slate-400">Loading notes...</p> : null}
           {error ? <p className="text-xs text-rose-300">{error}</p> : null}
           {success ? <p className="text-xs text-emerald-300">{success}</p> : null}
@@ -840,7 +843,7 @@ export default function NotesWorkspace() {
               <button
                 type="button"
                 onClick={createNote}
-                className="mt-3 rounded-lg bg-indigo-500 px-3 py-2 text-xs font-semibold text-white"
+                className="mt-3 rounded-xl bg-indigo-500 px-3 py-2 text-xs font-semibold text-white"
               >
                 Create your first note
               </button>
@@ -856,15 +859,19 @@ export default function NotesWorkspace() {
                 type="button"
                 key={note.id}
                 onClick={() => setSelectedId(note.id)}
-                className={`w-full rounded-xl border px-3 py-3 text-left transition ${
+                className={`w-full rounded-2xl border px-3 py-3 text-left shadow-[0_10px_30px_rgba(0,0,0,0.15)] transition ${
                   active
-                    ? "border-indigo-500 bg-indigo-500/10"
-                    : "border-slate-800 bg-slate-900 hover:border-slate-700"
+                    ? "border-indigo-400/50 bg-indigo-500/12 ring-1 ring-indigo-400/20"
+                    : "border-slate-800 bg-[#0a1018] hover:border-slate-700 hover:bg-slate-900"
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm font-semibold text-slate-100">{note.title}</p>
-                  {note.pinned ? <span className="text-xs text-amber-300">PIN</span> : null}
+                  {note.pinned ? (
+                    <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+                      Pin
+                    </span>
+                  ) : null}
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   <span
@@ -881,14 +888,14 @@ export default function NotesWorkspace() {
                     </span>
                   ))}
                 </div>
-                <p className="mt-1 line-clamp-2 text-xs text-slate-400">{stripContent(note.content)}</p>
+                <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-400">{stripContent(note.content)}</p>
               </button>
             );
           })}
         </div>
       </aside>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+      <section className="rounded-[28px] border border-[#1a2233] bg-[#0b111a] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
         <SharedNoteBanner
           workspaceName={workspaceState.workspace?.name}
           role={workspaceState.membership?.role}
@@ -905,6 +912,8 @@ export default function NotesWorkspace() {
         ) : null}
         {hasSelectedNote ? (
           <>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="min-w-0">
         {success ? (
           <div className="mb-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
             {success}
@@ -983,7 +992,7 @@ export default function NotesWorkspace() {
           placeholder="Note title"
           className="mb-3 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-lg font-semibold text-white outline-none"
         />
-        <div className="mb-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+        <div className="mb-3 rounded-[24px] border border-slate-800 bg-[#0a1018] p-4">
           <div className="flex flex-wrap gap-2">
             {(selectedNote.tags || []).map((tag) => (
               <button
@@ -1022,7 +1031,7 @@ export default function NotesWorkspace() {
           </div>
         </div>
 
-        <div className="mb-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+        <div className="rounded-[24px] border border-violet-500/20 bg-violet-500/5 p-4">
           <div className="mb-2 flex items-center justify-between gap-2">
             <div>
               <h4 className="text-sm font-semibold text-white">Video</h4>
@@ -1101,7 +1110,7 @@ export default function NotesWorkspace() {
           ) : null}
         </div>
 
-        <div className="mb-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+        <div className="mb-3 rounded-[24px] border border-slate-800 bg-[#0a1018] p-4">
           <div className="mb-3 flex flex-wrap gap-2">
             {editorTools.map((tool) => (
               <button
@@ -1120,11 +1129,24 @@ export default function NotesWorkspace() {
             onChange={(e) => updateSelected("content", e.target.value)}
             placeholder="Write your note in markdown..."
             rows={16}
-            className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-slate-200 outline-none"
+            className="w-full resize-none rounded-2xl border border-slate-700 bg-[#07101a] px-4 py-4 text-sm leading-7 text-slate-200 outline-none"
           />
         </div>
-
-        <div className="mb-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+        <p className="mt-3 text-xs text-slate-500">Autosave is connected to Supabase.</p>
+        <p className="mt-1 text-xs text-slate-400">
+          {autosaveState === "saving"
+            ? "Saving changes..."
+            : autosaveState === "saved"
+              ? "All changes saved."
+              : autosaveState === "pending"
+                ? "Changes pending autosave..."
+                : autosaveState === "error"
+                  ? "Autosave failed. Retry by clicking outside the editor."
+                  : "Changes save automatically."}
+        </p>
+          </div>
+          <div className="space-y-4">
+        <div className="rounded-[24px] border border-slate-800 bg-[#0a1018] p-4">
           <div className="mb-2 flex items-center justify-between gap-2">
             <h4 className="text-sm font-semibold text-white">Preview</h4>
             <span className="text-xs text-slate-500">Formatted preview</span>
@@ -1165,7 +1187,7 @@ export default function NotesWorkspace() {
           )}
         </div>
 
-        <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+        <div className="rounded-[24px] border border-slate-800 bg-[#0a1018] p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
             <div>
               <h4 className="text-sm font-semibold text-white">Attachments</h4>
@@ -1203,18 +1225,8 @@ export default function NotesWorkspace() {
             ))}
           </div>
         </div>
-        <p className="mt-3 text-xs text-slate-500">Autosave is connected to Supabase.</p>
-        <p className="mt-1 text-xs text-slate-400">
-          {autosaveState === "saving"
-            ? "Saving changes..."
-            : autosaveState === "saved"
-              ? "All changes saved."
-              : autosaveState === "pending"
-                ? "Changes pending autosave..."
-                : autosaveState === "error"
-                  ? "Autosave failed. Retry by clicking outside the editor."
-                  : "Changes save automatically."}
-        </p>
+          </div>
+        </div>
           </>
         ) : null}
       </section>
